@@ -1685,210 +1685,164 @@ def generate_quantity_template(base_tasks, zones_floors):
     df.to_excel(file_path, index=False)
     return file_path
 
-
-def generate_worker_template(base_tasks, worker_dict):
+TASK_ID_NAME = {}
+for discipline, tasks in BASE_TASKS.items():
+    for task in tasks:
+        TASK_ID_NAME[task.id] = task.name
+def generate_worker_template(workers):
     """
-    Generates an Excel template for worker resources.
-    - TaskName is used instead of TaskID.
-    - Users can fill counts and productivity.
+    Generates an Excel template for workers with task names instead of IDs.
     """
     records = []
-    for task in base_tasks:
-        for worker_name, worker in worker_dict.items():
+    for worker_name, worker in workers.items():
+        for task_id, prod_rate in worker.productivity_rates.items():
             records.append({
-                "TaskName": task["name"],      # Use TaskName
-                "Worker": worker_name,
+                "TaskName": TASK_ID_NAME.get(task_id, task_id),  # lookup task name
+                "WorkerType": worker.name,
                 "Count": worker.count,
                 "HourlyRate": worker.hourly_rate,
-                "Productivity": worker.productivity_rates.get(task["id"], ""),
+                "ProductivityRate": prod_rate
             })
-
     df = pd.DataFrame(records)
 
     temp_dir = tempfile.mkdtemp(prefix="worker_template_")
     file_path = os.path.join(temp_dir, "worker_template.xlsx")
     df.to_excel(file_path, index=False)
     return file_path
-def generate_equipment_template(equipment_dict):
-    """Generates a prefilled Excel template for equipment resources."""
+    
+def generate_equipment_template(equipment):
+    """
+    Generates an Excel template for equipment with task names instead of IDs.
+    """
     records = []
-    for e_name, e_obj in equipment_dict.items():
-        for task_id, rate in e_obj.productivity_rates.items():
+    for eq_name, eq in equipment.items():
+        for task_id, prod_rate in eq.productivity_rates.items():
             records.append({
-                "Equipment": e_name,
-                "TaskID": task_id,
-                "TaskName":task.name,
-                "Count": e_obj.count,
-                "HourlyRate": e_obj.hourly_rate,
-                "ProductivityRate": rate,
-                "Type": e_obj.type,
-                "MaxEquipment": e_obj.max_equipment
+                "TaskName": TASK_ID_NAME.get(task_id, task_id),  # lookup task name
+                "EquipmentType": eq.name,
+                "Count": eq.count,
+                "HourlyRate": eq.hourly_rate,
+                "ProductivityRate": prod_rate
             })
+
     df = pd.DataFrame(records)
+
     temp_dir = tempfile.mkdtemp(prefix="equipment_template_")
     file_path = os.path.join(temp_dir, "equipment_template.xlsx")
     df.to_excel(file_path, index=False)
     return file_path
-def run_schedule(zone_floors, quantity_matrix, start_date, holidays=None,
-                 workers_override=None, equipment_override=None):
+    
+def run_schedule(zone_floors, quantity_matrix, start_date, workers_dict=None, equipment_dict=None, holidays=None):
     """
-    Wraps the scheduling logic.
-    - zone_floors: dict of zones with number of floors
-    - quantity_matrix: user-filled quantities
-    - start_date: project start date
-    - holidays: optional list of holiday dates
-    - workers_override: dict of WorkerResource (from uploaded Excel)
-    - equipment_override: dict of EquipmentResource (from uploaded Excel)
-    Returns: schedule dict, output folder
+    Wraps scheduling logic.
+    Uses user-provided dictionaries if uploaded; otherwise defaults.
+    Returns dict of DataFrames and output folder path.
     """
-
     from reporting import BasicReporter
 
-    # Use overridden workers/equipment if provided
-    active_workers = workers_override if workers_override else workers
-    active_equipment = equipment_override if equipment_override else equipment
+    # Use defaults if no user input
+    workers_used = workers_dict if workers_dict else workers
+    equipment_used = equipment_dict if equipment_dict else equipment
 
-    # Generate task objects from BASE_TASKS
+    # Generate tasks
     tasks = generate_tasks(BASE_TASKS, zone_floors, cross_floor_links=cross_floor_links)
 
-    # Validate tasks against resources and quantity matrix
-    tasks, active_workers, active_equipment, quantity_matrix = validate_tasks(
-        tasks, active_workers, active_equipment, quantity_matrix
-    )
+    # Validate and patch tasks
+    tasks, workers_used, equipment_used, quantity_matrix = validate_tasks(tasks, workers_used, equipment_used, quantity_matrix)
 
-    # Workweek & calendar
-    workweek = [0, 1, 2, 3, 4, 5]  # Mon-Sat
+    # Setup calendar and duration calculator
+    workweek = [0, 1, 2, 3, 4, 5]
     cal = AdvancedCalendar(start_date=start_date, holidays=holidays, workweek=workweek)
-
-    # Duration calculator
-    dur_calc = DurationCalculator(active_workers, active_equipment, quantity_matrix)
+    dur_calc = DurationCalculator(workers_used, equipment_used, quantity_matrix)
 
     # Scheduler
-    sched = AdvancedScheduler(tasks, active_workers, active_equipment, cal, dur_calc)
+    sched = AdvancedScheduler(tasks, workers_used, equipment_used, cal, dur_calc)
     schedule = sched.generate()
 
-    # Reporter
+    # Reporting
     reporter = BasicReporter(tasks, schedule, sched.worker_manager, sched.equipment_manager, cal)
     output_folder = reporter.export_all()
 
     return schedule, output_folder
 
-
+# ---------------- Final generate_schedule_ui ----------------
 def generate_schedule_ui():
     st.header("📅 Generate Project Schedule")
+    st.markdown(
+        """
+        Upload or define your project input files.
+        - Quantities per task/zone/floor
+        - Worker and equipment resources
+        - Output: Schedule, Gantt, Utilizations
+        """
+    )
 
-    st.markdown("""
-    Define your project zones & floors, then download the default input files:
-    - Quantity template (to fill quantities per task, zone, floor)
-    - Worker resources template (prefilled from defaults, can modify counts/productivity)
-    - Equipment resources template (prefilled from defaults, can modify counts/productivity)
-    
-    After filling the templates, upload them to generate the project schedule.
-    """)
-
-    # -----------------------------
     # Define Zones & Floors
-    # -----------------------------
     st.subheader("🏗️ Define Project Zones & Floors")
     zones_floors = {}
-    num_zones = st.number_input(
-        "How many zones does the project have?",
-        min_value=1, max_value=20, value=len(zone_floors)
-    )
+    num_zones = st.number_input("Number of zones?", min_value=1, max_value=20, value=2)
     for i in range(num_zones):
         zone_name = st.text_input(f"Zone {i+1} Name", value=f"Zone_{i+1}")
-        max_floor = st.number_input(
-            f"Number of floors for {zone_name}",
-            min_value=0, max_value=100, value=5,
-            key=f"floor_{i}"
-        )
+        max_floor = st.number_input(f"Max floors for {zone_name}", min_value=0, max_value=100, value=5, key=f"floor_{i}")
         zones_floors[zone_name] = max_floor
 
-    # -----------------------------
-    # Download Templates
-    # -----------------------------
-    st.subheader("📁 Download Default Input Files")
-    if st.button("Generate & Download Templates"):
-        # Quantity template (empty for user to fill)
-        quantity_file = generate_quantity_template(BASE_TASKS, zones_floors)
-        with open(quantity_file, "rb") as f:
-            st.download_button(
-                "⬇️ Download Quantity Template Excel",
-                f, file_name="quantity_template.xlsx"
-            )
+    # Generate templates
+    if st.button("📁 Generate Default Templates"):
+        # Quantity template
+        qty_file = generate_quantity_template(BASE_TASKS, zones_floors)
+        with open(qty_file, "rb") as f:
+            st.download_button("⬇️ Download Quantity Template", f, file_name="quantity_template.xlsx")
 
-        # Worker template (prefilled, editable)
+        # Worker template
         worker_file = generate_worker_template(workers)
         with open(worker_file, "rb") as f:
-            st.download_button(
-                "⬇️ Download Worker Resources Excel",
-                f, file_name="workers_template.xlsx"
-            )
+            st.download_button("⬇️ Download Worker Template", f, file_name="worker_template.xlsx")
 
-        # Equipment template (prefilled, editable)
-        equipment_file = generate_equipment_template(equipment)
-        with open(equipment_file, "rb") as f:
-            st.download_button(
-                "⬇️ Download Equipment Resources Excel",
-                f, file_name="equipment_template.xlsx"
-            )
+        # Equipment template
+        equip_file = generate_equipment_template(equipment)
+        with open(equip_file, "rb") as f:
+            st.download_button("⬇️ Download Equipment Template", f, file_name="equipment_template.xlsx")
 
-    # -----------------------------
-    # Upload Filled Templates
-    # -----------------------------
-    st.subheader("📤 Upload Filled Input Files")
-    quantity_matrix_file = st.file_uploader("Quantity Matrix (Excel)", type=["xlsx"])
-    workers_file = st.file_uploader("Worker Resources (Excel)", type=["xlsx"])
-    equipment_file = st.file_uploader("Equipment Resources (Excel)", type=["xlsx"])
+    # Upload input files
+    quantity_file = st.file_uploader("📤 Upload Quantity Matrix (Excel)", type=["xlsx"])
+    worker_file = st.file_uploader("📤 Upload Worker Template (Excel)", type=["xlsx"])
+    equipment_file = st.file_uploader("📤 Upload Equipment Template (Excel)", type=["xlsx"])
+
     start_date = st.date_input("Project Start Date", value=pd.Timestamp.today())
 
-    # -----------------------------
-    # Generate Schedule
-    # -----------------------------
     if st.button("🚀 Generate Schedule"):
-        if not quantity_matrix_file:
-            st.warning("Please upload the Quantity Matrix.")
+        if not quantity_file:
+            st.warning("Please upload the Quantity Matrix Excel.")
             return
 
-        # Load Quantity matrix (user filled)
-        quantity_matrix = pd.read_excel(quantity_matrix_file)
+        # Read quantity matrix
+        quantity_matrix = pd.read_excel(quantity_file)
 
-        # Override workers if uploaded
-        workers_override = workers.copy()
-        if workers_file:
-            df_workers = pd.read_excel(workers_file)
-            for _, row in df_workers.iterrows():
-                w = workers_override.get(row["Worker"])
-                if w:
-                    w.count = row.get("Count", w.count)
-                    w.hourly_rate = row.get("HourlyRate", w.hourly_rate)
-                    if "ProductivityRate" in row and pd.notna(row["ProductivityRate"]):
-                        w.productivity_rates[row["TaskID"]] = row["ProductivityRate"]
+        # Override defaults if uploaded
+        workers_used = None
+        if worker_file:
+            df_workers = pd.read_excel(worker_file)
+            workers_used = parse_worker_excel(df_workers)  # function to convert uploaded file to workers dict
 
-        # Override equipment if uploaded
-        equipment_override = equipment.copy()
+        equipment_used = None
         if equipment_file:
-            df_equipment = pd.read_excel(equipment_file)
-            for _, row in df_equipment.iterrows():
-                e = equipment_override.get(row["Equipment"])
-                if e:
-                    e.count = row.get("Count", e.count)
-                    e.hourly_rate = row.get("HourlyRate", e.hourly_rate)
-                    if "ProductivityRate" in row and pd.notna(row["ProductivityRate"]):
-                        e.productivity_rates[row["TaskID"]] = row["ProductivityRate"]
+            df_equip = pd.read_excel(equipment_file)
+            equipment_used = parse_equipment_excel(df_equip)  # function to convert uploaded file to equipment dict
 
-        # Run schedule
         with st.spinner("Generating schedule..."):
             schedule, output_folder = run_schedule(
-                zone_floors=zones_floors,
-                quantity_matrix=quantity_matrix,
-                start_date=start_date,
-                workers_override=workers_override,
-                equipment_override=equipment_override
+                zones_floors, quantity_matrix, start_date, workers_used, equipment_used
             )
 
         st.success("✅ Schedule generated successfully!")
-        st.info("Download all output files from the temporary folder below.")
+        st.info("All outputs are in the temporary folder. Download immediately.")
+
+        # Provide download links for outputs
+        for file_name in os.listdir(output_folder):
+            file_path = os.path.join(output_folder, file_name)
+            with open(file_path, "rb") as f:
+                st.download_button(f"⬇️ {file_name}", f, file_name=file_name)
+
 def analyze_project_progress(reference_path, actual_path):
     ref_df = pd.read_excel(reference_path, sheet_name="Schedule")
     act_df = pd.read_excel(actual_path)
