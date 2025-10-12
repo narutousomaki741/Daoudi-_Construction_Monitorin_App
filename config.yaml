@@ -1,0 +1,15 @@
+# .streamlit/config.toml
+[theme]
+primaryColor = "#1e90ff"          # Construction-blue accent
+backgroundColor = "#f8f9fa"       # Light gray background
+secondaryBackgroundColor = "#ffffff"
+textColor = "#1a1a1a"
+font = "sans serif"
+
+[server]
+headless = true
+enableCORS = false
+port = 8501
+
+[browser]
+gatherUsageStats = false
