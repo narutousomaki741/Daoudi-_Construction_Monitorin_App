@@ -32,7 +32,7 @@ def parse_worker_excel(df):
     workers[worker_name] = WorkerObject
     Expects columns: TaskName, WorkerType, Count, HourlyRate, ProductivityRate
     """
-    from logic import Worker  # Make sure your Worker class is imported
+    from defaults import Worker  # Make sure your Worker class is imported
 
     workers = {}
 
@@ -57,7 +57,7 @@ def parse_equipment_excel(df):
     equipment[equipment_name] = EquipmentObject
     Expects columns: TaskName, EquipmentType, Count, HourlyRate, ProductivityRate
     """
-    from logic import Equipment  # Make sure your Equipment class is imported
+    from defaults import Equipment  # Make sure your Equipment class is imported
 
     equipment = {}
 
