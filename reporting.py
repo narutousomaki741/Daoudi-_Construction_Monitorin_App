@@ -9,7 +9,7 @@ import pandas as pd
 import json
 import html
 import logging
-from logic import CPMAnalyzer
+
 
 DEFAULT_DISCIPLINE_COLORS = {
     "Préliminaires": "#FF6B6B",
@@ -654,7 +654,7 @@ class BasicReporter:
         self.worker_manager = worker_manager
         self.equipment_manager = equipment_manager
         self.calendar = calendar
-
+    
     # ---------------------------------------------------------
     # 1️⃣ Export basic schedule
     # ---------------------------------------------------------
@@ -739,11 +739,12 @@ class BasicReporter:
     # 3️⃣ CPM Export (unchanged)
     # ---------------------------------------------------------
     def export_cpm(self, path):
+        from logic import CPMAnalyzer
         durations = {t.id: max(1, (self.schedule[t.id][1] - self.schedule[t.id][0]).days)
                      for t in self.tasks if t.id in self.schedule}
         dependencies = {t.id: t.predecessors for t in self.tasks}
         cpm = CPMAnalyzer(list(durations.keys()), durations, dependencies).run()
-
+     
         rows = []
         for t in self.tasks:
             if t.id in cpm.ES:
