@@ -17,8 +17,7 @@ import streamlit as st
 import pandas as pd
 import plotly.express as px
 from utils import save_excel_file
-from reporting import BasicReporter
-from reporting import MonitoringReporter
+
 
 
 logger = logging.getLogger(__name__)
@@ -1589,6 +1588,7 @@ def run_schedule(zone_floors, quantity_matrix, start_date, holidays=None):
     """
     Wraps your scheduling logic. Returns dict of DataFrames.
     """
+    from reporting import BasicReporter
     tasks = generate_tasks(BASE_TASKS, zone_floors,cross_floor_links=cross_floor_links)
     # 🔍 Call validate with all arguments
     validate_tasks(tasks, workers, equipment, quantity_matrix)
@@ -1616,7 +1616,7 @@ def generate_schedule_ui():
     - Weekly task progress  
     - Interactive Gantt chart  
     """)
-
+    from reporting import BasicReporter
     # Input uploads
     quantity_matrix = st.file_uploader("📤 Upload Quantity Matrix (Excel)", type=["xlsx"])
     zones_file = st.file_uploader("📤 Upload Zones Definition (Excel)", type=["xlsx"])
@@ -1679,7 +1679,7 @@ def monitor_project_ui():
 
     reference_file = st.file_uploader("Upload Reference Schedule (Excel)", type=["xlsx"])
     actual_file = st.file_uploader("Upload Actual Progress (Excel)", type=["xlsx"])
-
+    from reporting import MonitoringReporter
     if reference_file and actual_file:
         ref_df = pd.read_excel(reference_file)
         act_df = pd.read_excel(actual_file)
