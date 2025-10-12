@@ -1686,26 +1686,29 @@ def generate_quantity_template(base_tasks, zones_floors):
     return file_path
 
 
-def generate_worker_template(workers_dict):
-    """Generates a prefilled Excel template for worker resources."""
+def generate_worker_template(base_tasks, worker_dict):
+    """
+    Generates an Excel template for worker resources.
+    - TaskName is used instead of TaskID.
+    - Users can fill counts and productivity.
+    """
     records = []
-    for w_name, w_obj in workers_dict.items():
-        for task_id, rate in w_obj.productivity_rates.items():
+    for task in base_tasks:
+        for worker_name, worker in worker_dict.items():
             records.append({
-                "Worker": w_name,
-                "TaskID": task_id,
-                "Count": w_obj.count,
-                "HourlyRate": w_obj.hourly_rate,
-                "ProductivityRate": rate,
-                "Skills": ",".join(w_obj.skills),
-                "MaxCrews": w_obj.max_crews
+                "TaskName": task["name"],      # Use TaskName
+                "Worker": worker_name,
+                "Count": worker.count,
+                "HourlyRate": worker.hourly_rate,
+                "Productivity": worker.productivity_rates.get(task["id"], ""),
             })
+
     df = pd.DataFrame(records)
+
     temp_dir = tempfile.mkdtemp(prefix="worker_template_")
-    file_path = os.path.join(temp_dir, "workers_template.xlsx")
+    file_path = os.path.join(temp_dir, "worker_template.xlsx")
     df.to_excel(file_path, index=False)
     return file_path
-
 def generate_equipment_template(equipment_dict):
     """Generates a prefilled Excel template for equipment resources."""
     records = []
@@ -1714,6 +1717,7 @@ def generate_equipment_template(equipment_dict):
             records.append({
                 "Equipment": e_name,
                 "TaskID": task_id,
+                "TaskName":task.name,
                 "Count": e_obj.count,
                 "HourlyRate": e_obj.hourly_rate,
                 "ProductivityRate": rate,
