@@ -1,3 +1,7 @@
+from dataclasses import dataclass, field
+from typing import List, Optional, Dict
+from datetime import datetime
+
 @dataclass
 class WorkerResource:
     name: str
