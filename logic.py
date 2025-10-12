@@ -1249,28 +1249,6 @@ def validate_tasks(tasks, workers, equipment, quantity_matrix):
     print("✅ Validation passed: all predecessors exist, no cycles.")
     return tasks, workers, equipment, quantity_matrix
 
-    # check for cycles (Topo_order_tasks will raise)
-
-def run_schedule(zone_floors, quantity_matrix, start_date, holidays=None):
-    """
-    Wraps your scheduling logic. Returns dict of DataFrames.
-    """
-    from reporting import BasicReporter
-    tasks = generate_tasks(BASE_TASKS, zone_floors,cross_floor_links=cross_floor_links)
-    # 🔍 Call validate with all arguments
-    validate_tasks(tasks, workers, equipment, quantity_matrix)
-    # 🔍 Apply validation & patching
-    tasks, workers, equipment, quantity_matrix = validate_tasks(tasks, workers, equipment, quantity_matrix)
-    workweek=[0,1,2,3,4,5]
-    cal = AdvancedCalendar(start_date=start_date,holidays=holidays,workweek=workweek)  # customize holidays & workweek if needed
-    dur_calc = DurationCalculator(workers, equipment, quantity_matrix)
-    sched = AdvancedScheduler(tasks, workers, equipment, cal, dur_calc)
-    schedule = sched.generate()
-    
-    reporter = BasicReporter(tasks, schedule, sched.worker_manager, sched.equipment_manager, cal)
-    output_folder = reporter.export_all()
-    return schedule, output_folder
-
 def generate_quantity_template(base_tasks, zones_floors):
     """Generates an empty Excel template for quantity input by the user."""
     records = []
@@ -1346,7 +1324,7 @@ def run_schedule(zone_floors, quantity_matrix, start_date, workers_dict=None, eq
     Returns schedule (dict of DataFrames) and output folder path.
     """
     from reporting import BasicReporter
-
+    from defaults import workers, equipment, BASE_TASKS, cross_floor_links, acceleration, SHIFT_CONFIG
     # Use defaults if no user input
     workers_used = workers_dict if workers_dict else workers
     equipment_used = equipment_dict if equipment_dict else equipment
@@ -1377,7 +1355,7 @@ def generate_schedule_ui():
     import streamlit as st
     import os
     import pandas as pd
-
+    from helpers import parse_quantity_excel,parse_worker_excel,pars_equipment_excel
     st.header("📅 Generate Project Schedule")
     st.markdown("""
         Upload or define your project inputs:
