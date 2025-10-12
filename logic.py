@@ -17,6 +17,7 @@ import streamlit as st
 import pandas as pd
 import plotly.express as px
 from utils import save_excel_file
+from defaults import workers, equipment, BASE_TASKS, cross_floor_links, acceleration, SHIFT_CONFIG
 
 
 
@@ -1324,7 +1325,6 @@ def run_schedule(zone_floors, quantity_matrix, start_date, workers_dict=None, eq
     Returns schedule (dict of DataFrames) and output folder path.
     """
     from reporting import BasicReporter
-    from defaults import workers, equipment, BASE_TASKS, cross_floor_links, acceleration, SHIFT_CONFIG
     # Use defaults if no user input
     workers_used = workers_dict if workers_dict else workers
     equipment_used = equipment_dict if equipment_dict else equipment
