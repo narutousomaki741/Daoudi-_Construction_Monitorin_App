@@ -1355,7 +1355,7 @@ def generate_schedule_ui():
     import streamlit as st
     import os
     import pandas as pd
-    from helpers import parse_quantity_excel,parse_worker_excel,pars_equipment_excel
+    from helpers import parse_quantity_excel,parse_worker_excel,parse_equipment_excel
     st.header("📅 Generate Project Schedule")
     st.markdown("""
         Upload or define your project inputs:
