@@ -3,45 +3,30 @@ import pandas as pd
 import streamlit as st
 import plotly.express as px
 
+import pandas as pd
+import os
+import tempfile
+
 def load_excel(file):
-    """Reads an Excel file into a DataFrame safely."""
-    try:
+    """Load an uploaded Excel file into a Pandas DataFrame."""
+    if file is not None:
         return pd.read_excel(file)
-    except Exception as e:
-        st.error(f"❌ Error reading Excel file: {e}")
-        return None
+    return None
 
-def display_gantt(df, title="Project Gantt Chart"):
-    """Displays Gantt chart using Plotly."""
-    try:
-        fig = px.timeline(
-            df,
-            x_start="Start",
-            x_end="End",
-            y="TaskName",
-            color="Discipline",
-            hover_name="TaskName",
-            title=title
-        )
-        fig.update_yaxes(autorange="reversed")
-        st.plotly_chart(fig, use_container_width=True)
-    except Exception as e:
-        st.warning(f"⚠️ Unable to display Gantt chart: {e}")
+def save_excel_file(df, filename_prefix="output"):
+    """Save DataFrame to a temporary Excel file and return the path."""
+    if df is None or df.empty:
+        raise ValueError("Cannot save an empty DataFrame.")
+    temp_dir = tempfile.mkdtemp(prefix="construction_app_")
+    path = os.path.join(temp_dir, f"{filename_prefix}.xlsx")
+    df.to_excel(path, index=False)
+    return path
 
-def display_s_curve(df, title="S-Curve Progress"):
-    """Displays an S-curve of cumulative progress."""
-    try:
-        fig = px.line(
-            df,
-            x="WeekStart",
-            y="CumulativeProgress",
-            color="Discipline",
-            title=title,
-            markers=True
-        )
-        st.plotly_chart(fig, use_container_width=True)
-    except Exception as e:
-        st.warning(f"⚠️ Could not plot S-curve: {e}")
+def validate_inputs(**kwargs):
+    """Check if all inputs are valid."""
+    for key, value in kwargs.items():
+        if value is None:
+            raise ValueError(f"Missing input: {key}")
 
 def download_file(file_path, label):
     """Allow user to download a file from a path."""
