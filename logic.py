@@ -1642,7 +1642,6 @@ def generate_schedule_ui():
     - Weekly task progress  
     - Interactive Gantt chart  
     """)
-    from reporting import BasicReporter
     # Input uploads
     
     st.subheader("🏗️ Define Project Zones & Floors")
@@ -1677,7 +1676,7 @@ def generate_schedule_ui():
             worker_manager = None
             equipment_manager = None
             calendar = None
-
+            from reporting import BasicReporter
             # Initialize Reporter
             reporter = BasicReporter(tasks, schedule, worker_manager, equipment_manager, calendar)
             reporter.export_all(folder=tempfile.mkdtemp(prefix="schedule_output_"))
