@@ -32,7 +32,7 @@ def parse_worker_excel(df):
     workers[worker_name] = WorkerObject
     Expects columns: TaskName, WorkerType, Count, HourlyRate, ProductivityRate
     """
-    from defaults import worker as Worker  # Make sure your Worker class is imported
+    from defaults import workers as Worker  # Make sure your Worker class is imported
 
     workers = {}
 
