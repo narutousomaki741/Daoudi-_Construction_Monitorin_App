@@ -1604,6 +1604,32 @@ def run_schedule(zone_floors, quantity_matrix, start_date, holidays=None):
     output_folder = reporter.export_all()
     return schedule, output_folder
 
+def generate_quantity_template(base_tasks, zones_floors):
+    """
+    Generates an empty Excel template for quantity input by the user,
+    based on manually defined zones and floors.
+    """
+    records = []
+    for zone, max_floor in zones_floors.items():
+        for floor in range(max_floor + 1):
+            for task in base_tasks:
+                records.append({
+                    "TaskID": task["id"],
+                    "TaskName": task["name"],
+                    "Zone": zone,
+                    "Floor": floor,
+                    "Discipline": task["discipline"],
+                    "Quantity": "",
+                    "Unit": task.get("unit", "")
+                })
+
+    df = pd.DataFrame(records)
+
+    temp_dir = tempfile.mkdtemp(prefix="quantity_template_")
+    file_path = os.path.join(temp_dir, "quantity_template.xlsx")
+    df.to_excel(file_path, index=False)
+
+    return file_path
 def generate_schedule_ui():
     st.header("📅 Generate Project Schedule")
 
@@ -1618,8 +1644,20 @@ def generate_schedule_ui():
     """)
     from reporting import BasicReporter
     # Input uploads
+    
+    st.subheader("🏗️ Define Project Zones & Floors")
+    zones_floors = {}
+    num_zones = st.number_input("How many zones does the project have?", min_value=1, max_value=20, value=2)
+    for i in range(num_zones):
+        zone_name = st.text_input(f"Zone {i+1} Name", value=f"Zone_{i+1}")
+        max_floor = st.number_input(f"Number of floors for {zone_name}", min_value=0, max_value=100, value=5, key=f"floor_{i}")
+        zones_floors[zone_name] = max_floor
+    if st.button("📁 Generate Quantity Template"):
+        file_path = generate_quantity_template(BASE_TASKS, zones_floors)
+        with open(file_path, "rb") as f:
+        st.download_button("⬇️ Download Quantity Template Excel", f, file_name="quantity_template.xlsx")
+
     quantity_matrix = st.file_uploader("📤 Upload Quantity Matrix (Excel)", type=["xlsx"])
-    zones_file = st.file_uploader("📤 Upload Zones Definition (Excel)", type=["xlsx"])
     workers_file = st.file_uploader("📤 Upload Worker Resources (Excel)", type=["xlsx"])
     equipments_file = st.file_uploader("📤 Upload Equipment Resources (Excel)", type=["xlsx"])
     max_floor = st.number_input("🏢 Max Floor", min_value=1, value=5)
