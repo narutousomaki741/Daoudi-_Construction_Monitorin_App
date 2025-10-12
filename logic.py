@@ -1251,398 +1251,6 @@ def validate_tasks(tasks, workers, equipment, quantity_matrix):
 
     # check for cycles (Topo_order_tasks will raise)
 
-  
-# -----------------------------
-# Example resources & tasks (you can replace these with your data)
-# -----------------------------
-workers = {
-    "BétonArmée": WorkerResource(
-        "BétonArmée", count=200, hourly_rate=18,
-        productivity_rates={"3.1":5,"3.2":5,"2.1":5,"3.4": 5, "3.5":5,"4.1": 12,"3.8":5,"3.9":5,
-                        "3.7":5,"3.10": 10,"3.11": 10,"3.13": 10,"4.1": 10,"4.3": 10,"4.4": 10
-                       ,"4.6": 10,"4.7": 10 ,"4.9": 10,"4.10": 10},
-        skills=["BétonArmée"],max_crews=25
-    ),
-    "Férrailleur": WorkerResource(
-        "Férrailleur", count=85, hourly_rate=18,
-        productivity_rates={"3.3": 400, "3.6": 180,"3.12": 300,"4.2": 180,"4.5": 300,
-                            "4.8": 120},
-        skills=["BétonArmée"],max_crews=25
-    ),
-    "Topograph": WorkerResource(
-        "Topograph", count=5, hourly_rate=18,
-        productivity_rates={"1.3": 100},
-        skills=["BétonArmée"],max_crews=10
-    ),
-    "ConstMétallique": WorkerResource(
-        "ConstMétallique", count=3, hourly_rate=60,
-        productivity_rates={"9.2": 8},
-        skills=["ConstMétallique"],max_crews=10
-    ),
-    "Maçonnerie": WorkerResource(
-        "Maçonnerie", count=84, hourly_rate=40,
-        productivity_rates={"5.1": 10},
-        skills=["Maçonnerie"],max_crews=25
-    ),
-     "Cloisennement": WorkerResource(
-        "Cloisennement", count=84, hourly_rate=40,
-        productivity_rates={"5.1": 10},
-        skills=["Cloisennement"],max_crews=25
-    ),
-    "Etanchiété": WorkerResource(
-        "Etanchiété", count=83, hourly_rate=40,
-        productivity_rates={"5.2": 10},
-        skills=["Etanchiété"],max_crews=25
-    ),
-    "Revetement": WorkerResource(
-        "Revetement", count=84, hourly_rate=40,
-        productivity_rates={"5.3": 15, "5.4": 10},
-        skills=["Carrelage", "Marbre"],max_crews=15
-    ),
-    "Peinture": WorkerResource(
-        "Peinture", count=8, hourly_rate=40,
-        productivity_rates={"5.4": 10, "5.5": 25},
-        skills=["Peinture"],max_crews=15
-    ),
-     "Enduit": WorkerResource(
-        "Enduit", count=8, hourly_rate=40,
-        productivity_rates={"5.4": 10, "5.5": 25},
-        skills=["Enduit"],max_crews=15
-    ),
-}
-
-equipment = {
-    "Chargeuse": EquipmentResource(
-        "Chargeuse", count=160, hourly_rate=100,
-        productivity_rates={ "2.2": 120, "2.3": 20,"2.4": 40,"2.5": 20,"2.6": 20,
-                            "2.7": 20,"2.9": 20},
-        type="Terrassement",max_equipment=6
-    ),
-    "Bulldozer": EquipmentResource(
-        "Bulldozer", count=16, hourly_rate=100,
-        productivity_rates={"2.1": 15, "2.2": 200, "2.3": 20},
-        type="Terrassement",max_equipment=6
-    ),
-    "Pelle": EquipmentResource(
-        "Pelle", count=16, hourly_rate=100,
-        productivity_rates={"2.1": 15, "2.2": 200, "2.3": 20},
-        type="Terrassement",max_equipment=6
-    ),
-    "Tractopelle": EquipmentResource(
-        "Tractopelle", count=16, hourly_rate=100,
-        productivity_rates={"2.1": 15, "2.2": 200, "2.3": 20},
-        type="Terrassement",max_equipment=6
-    ),
-    "Niveleuse": EquipmentResource(
-        "Niveleuse", count=16, hourly_rate=100,
-        productivity_rates={"2.1": 15, "2.2": 200, "2.3": 20},
-        type="Terrassement",max_equipment=6
-    ),
-    "Compacteur": EquipmentResource(
-        "Compacteur", count=16, hourly_rate=100,
-        productivity_rates={ "2.9": 20},
-        type="Terrassement",max_equipment=6
-    ),
-    "Grue à tour": EquipmentResource(
-        "Crane", count=80, hourly_rate=150,
-        productivity_rates={"5.1": 10},
-        type="Levage",max_equipment=8
-    ),
-    "Grue mobile": EquipmentResource(
-        "Crane", count=90, hourly_rate=150,
-        productivity_rates={"5.1": 10},
-        type="Levage",max_equipment=8
-    ),
-     "Nacelle": EquipmentResource(
-        "Nacelle", count=16, hourly_rate=100,
-        productivity_rates={"2.1": 15, "2.2": 200, "2.3": 20},
-        type="Levage",max_equipment=6
-    ),
-    "Pump": EquipmentResource(
-        "Pump", count=30, hourly_rate=190,
-        productivity_rates={"3.5": 14, "4.1": 16},
-        type="Bétonnage",max_equipment=3
-    ),
-    "Camion": EquipmentResource(
-        "Camion", count=9, hourly_rate=190,
-        productivity_rates={"2.10": 120, "2.8": 120},
-        type="Transport",max_equipment=3
-    ),
-    "Bétonier": EquipmentResource(
-        "Bétonier", count=9, hourly_rate=190,
-        productivity_rates={"3.5": 14, "4.1": 16},
-        type="Bétonnage",max_equipment=3
-    ),
-    "Manito": EquipmentResource(
-        "Manito", count=19, hourly_rate=190,
-        productivity_rates={"3.5": 14, "4.1": 16},
-        type="Transport",max_equipment=8
-    ),
-}
-
-BASE_TASKS = {
-    "Préliminaire": [
-        BaseTask(
-            id="1.1", name="Validation du Plan_implantation_EXE", discipline="Préliminaire",
-            resource_type="BétonArmée", task_type="hybrid",base_duration=0,
-            predecessors=[], repeat_on_floor=False
-        ),
-        BaseTask(
-            id="1.2", name="Bases vie", discipline="Préliminaire",
-            resource_type="BétonArmée", task_type="worker",
-            repeat_on_floor=False,min_crews_needed=2,predecessors=["1.1"]
-        ),
-        BaseTask(
-            id="1.3", name="Levée Topographique", discipline="Préliminaire",
-            resource_type="Topograph", predecessors=["1.1"],base_duration=2,
-            repeat_on_floor=False,min_crews_needed=2
-        ),
-         BaseTask(
-            id="1.4", name="Installations temporaires", discipline="Préliminaire",
-            resource_type="BétonArmée", predecessors=["1.2"],base_duration=4,
-            repeat_on_floor=False,min_crews_needed=2
-        ),
-         BaseTask(
-            id="1.5", name="Signalisation", discipline="Préliminaire",
-            resource_type="BétonArmée", predecessors=["1.1"],base_duration=2,
-            repeat_on_floor=False,min_crews_needed=2
-        ),
-    ],
-    "Terrassement": [
-        BaseTask(
-            id="2.1", name="Validation des PLAN_NIVEAUX_EXE", discipline="Terrassement",resource_type="BétonArmée", task_type="equipment",
-             min_crews_needed=2, predecessors=["1.3","1.1"], repeat_on_floor=False,base_duration=0
-        ),
-        BaseTask(
-            id="2.2", name="Décapage & nettoyage", discipline="Terrassement",resource_type="BétonArmée", task_type="equipment",
-            min_equipment_needed={"Chargeuse": 1,"Bulldozer":1}, min_crews_needed=2, predecessors=["2.1","1.2"], repeat_on_floor=False
-        ),
-        BaseTask(
-            id="2.3", name="Déviation et protection réseaux existants", discipline="Terrassement", resource_type="BétonArmée", task_type="equipment",
-            min_equipment_needed={"Pelle": 1,"Chargeuse":1}, min_crews_needed=3,predecessors=["2.2"], repeat_on_floor=False
-        ),
-        BaseTask(
-            id="2.4", name="Excavation en masse", discipline="Terrassement", resource_type="BétonArmée", 
-            task_type="equipment", min_equipment_needed={"Chargeuse": 1,("Pelle","Tractopelle"):1},
-             min_crews_needed=3,predecessors=["2.2","2.3"], repeat_on_floor=False
-        ),
-        BaseTask(
-            id="2.5", name="Souténement temporaire", discipline="Terrassement", resource_type="BétonArmée",
-             task_type="equipment", min_equipment_needed={("Pelle","Tractopelle"): 1,"Chargeuse":1}, min_crews_needed=3,
-            predecessors=["2.4"], repeat_on_floor=False,included=False
-        ),
-        BaseTask(
-            id="2.6", name="Excavation des tranchées de fondations", discipline="Terrassement", resource_type="BétonArmée",
-              task_type="equipment",min_equipment_needed={"Manito": 1,("Pelle","Tractopelle"):1}, min_crews_needed=3,
-            predecessors=["2.5","2.4"], repeat_on_floor=False
-        ),
-        BaseTask(
-            id="2.7", name="Stabilisation et protection des talus", discipline="Terrassement", resource_type="BétonArmée", 
-            task_type="equipment",min_equipment_needed={"Chargeuse": 1}, min_crews_needed=3,
-            predecessors=["2.4"], repeat_on_floor=False,included=False
-        ),
-        BaseTask(
-            id="2.8", name="Aport du matériaux de remblais", discipline="Terrassement", resource_type="BétonArmée", task_type="equipment",
-            min_equipment_needed={"Chargeuse": 1,"Camion":1}, min_crews_needed=3,
-            predecessors=["2.6"], repeat_on_floor=False,
-        ),
-        BaseTask(
-            id="2.9", name="Remblais+Compactage", discipline="Terrassement",resource_type="BétonArmée", 
-            task_type="equipment",min_equipment_needed={"Chargeuse": 1, "Compacteur": 1},
-              min_crews_needed=3,predecessors=["2.8","2.7","2.6"], repeat_on_floor=False ),
-        BaseTask(
-            id="2.10", name="Export du matériaux de déblais", discipline="Terrassement", resource_type="BétonArmée", task_type="equipment",
-            min_equipment_needed={"Chargeuse": 1,"Camion":1}, min_crews_needed=3,predecessors=["2.6"], repeat_on_floor=False
-        ),
-    ],
-    "Fondations": [
-        BaseTask(
-            id="3.1", name="Validation du Plans_couffrage/ferraillage_Fondations_EXE", discipline="Fondations",resource_type="BétonArmée",
-            task_type="hybrid",base_duration=0,predecessors=["2.1"], repeat_on_floor=False),
-         BaseTask(
-            id="3.2", name="Préparation de la couche de forme", discipline="Fondations",
-            resource_type="BétonArmée", task_type="hybrid",base_duration=1,
-            min_equipment_needed={"Bétonier": 1}, min_crews_needed=2,
-            predecessors=["3.1","2.6"], repeat_on_floor=False ),
-         BaseTask(
-            id="3.3", name="Préparation du ferraillage des semelles", discipline="Fondations",
-            resource_type="Férrailleur", task_type="worker", min_crews_needed=2,
-            predecessors=["3.1","2.10","2.9"], repeat_on_floor=False ),
-        BaseTask(
-            id="3.4", name="Coffrage et Pose du armatures des semelles", discipline="Fondations",
-            resource_type="BétonArmée", task_type="hybrid",
-            min_equipment_needed={"Grue à tour": 1}, min_crews_needed=2,
-            predecessors=["3.3","3.2"], repeat_on_floor=False),
-         BaseTask(
-            id="3.5", name="Bétonnage des semelles", discipline="Fondations",
-            resource_type="BétonArmée", task_type="hybrid", delay=5,
-            min_equipment_needed={"Pump": 1,"Bétonier":1}, min_crews_needed=2,
-            predecessors=["3.4"], repeat_on_floor=False),
-         BaseTask(
-            id="3.6", name="Préparation du armatures des murs de fondations", discipline="Fondations",
-            resource_type="Férrailleur", task_type="worker", min_crews_needed=2,
-            predecessors=["3.1"], repeat_on_floor=False ),
-         BaseTask(
-            id="3.7", name="Coffrage et pose du armatures des murs de fondations", discipline="Fondations",
-            resource_type="BétonArmée", task_type="hybrid",
-            min_equipment_needed={"Grue à tour": 1}, min_crews_needed=2,
-            predecessors=["3.6","3.5"], repeat_on_floor=False),
-         BaseTask(
-            id="3.8", name="Bétonnage des murs de fondations", discipline="Fondations",
-            resource_type="BétonArmée", task_type="hybrid",base_duration=2,
-            min_equipment_needed={"Pump": 1,"Bétonier":1}, min_crews_needed=2,
-            predecessors=["3.7"], repeat_on_floor=False),
-         BaseTask(
-            id="3.9", name="Installation du système de drainage", discipline="Fondations",
-            resource_type="BétonArmée", task_type="hybrid",
-            min_equipment_needed={("Chargeuse","Pelle"):1,"Manito":1}, min_crews_needed=2,
-            predecessors=["3.8"], repeat_on_floor=False),
-        BaseTask(
-            id="3.10", name="Etanchiété des fondations", discipline="Fondations",
-            resource_type="BétonArmée", task_type="worker",
-            min_equipment_needed={"Manito": 1}, min_crews_needed=2,
-            predecessors=["3.9"], repeat_on_floor=False),
-        BaseTask(
-            id="3.11", name="Réseau sous dallage", discipline="Fondations",
-            resource_type="BétonArmée", task_type="hybrid",
-            min_equipment_needed={"Manito": 1,"Pelle":1}, min_crews_needed=2,
-            predecessors=["3.10"], repeat_on_floor=False ),
-        BaseTask(
-            id="3.12", name="Pose du armatures du dallage", discipline="Fondations",
-            resource_type="Férrailleur", task_type="hybrid",
-            min_equipment_needed={"Manito": 1}, min_crews_needed=2,
-            predecessors=["3.11"], repeat_on_floor=False ),
-        BaseTask(
-            id="3.13", name="Bétonnage du dallage", discipline="Fondations",
-            resource_type="BétonArmée", task_type="hybrid",base_duration=2,
-            min_equipment_needed={"Pump": 1,"Bétonier":1}, min_crews_needed=2,
-            predecessors=["3.12"], repeat_on_floor=False  ),
-        
-    ],
-    "Superstructure": [
-        BaseTask(
-            id="4.1", name="Validation du Plans_couffrage/ferraillage_EXE", discipline="Superstructure",base_duration=0,
-            resource_type="BétonArmée", task_type="hybrid",min_equipment_needed={"Grue à tour": 1}, min_crews_needed=2, predecessors=["3.1"] ),
-        BaseTask(
-            id="4.2", name="Préparations des armatures des poteaux/voiles", discipline="Superstructure",
-            resource_type="Férrailleur", task_type="hybrid",
-            min_equipment_needed={"Grue mobile": 1, "Pump": 1}, min_crews_needed=2,
-            predecessors=["4.1"]),
-        
-         BaseTask(
-            id="4.3", name="Coffrage+pose des armatures des poteaux/voiles", discipline="Superstructure",
-            resource_type="BétonArmée", task_type="hybrid",
-            min_equipment_needed={"Grue mobile": 1, "Pump": 1}, min_crews_needed=2,
-            predecessors=["4.1", "4.2"]),
-        BaseTask(
-            id="4.4", name="Bétonnage des poteaux/voiles", discipline="Superstructure",
-            resource_type="BétonArmée", task_type="hybrid",base_duration=2,
-            min_equipment_needed={"Grue mobile": 1, "Pump": 1}, min_crews_needed=2,
-            predecessors=["4.3"]),
-        BaseTask(
-            id="4.5", name="Préparation du armatures des poutres/plancher-Haut", discipline="Superstructure",
-            resource_type="Férrailleur", task_type="hybrid",
-            min_equipment_needed={"Grue à tour": 1}, min_crews_needed=2,
-            predecessors=["4.1","4.4"] ),
-        BaseTask(
-            id="4.6", name="Coffrage+pose des armatures des poutres/plancher-Haut", discipline="Superstructure",
-            resource_type="BétonArmée", task_type="hybrid",
-            min_equipment_needed={"Grue mobile": 1, "Pump":1}, min_crews_needed=2,
-            predecessors=["4.5"] ),
-        BaseTask(
-            id="4.7", name="Bétonnages des poutres/planchier-Haut", discipline="Superstructure",
-            resource_type="BétonArmée", task_type="hybrid",base_duration=2,
-            min_equipment_needed={"Grue mobile": 1, "Pump": 1}, min_crews_needed=2,
-            predecessors=["4.6"] ),
-        
-        BaseTask(
-            id="4.8", name="Préparations des armatures des escaliers", discipline="Superstructure",
-            resource_type="Férrailleur", task_type="hybrid",
-            min_equipment_needed={"Grue à tour": 1, "Pump": 1}, min_crews_needed=2,
-            predecessors=["4.1"]),
-        BaseTask(
-            id="4.9", name="Coffrage+pose des armatures des escaliers", discipline="Superstructure",
-            resource_type="BétonArmée", task_type="hybrid",
-            min_equipment_needed={"Grue à tour": 1, "Pump":1}, min_crews_needed=2,
-            predecessors=["4.8"]),
-        BaseTask(
-            id="4.10", name="Bétonnage des escaliers", discipline="Superstructure",
-            resource_type="BétonArmée", task_type="hybrid",
-            min_equipment_needed={"Grue à tour": 1, "Pump": 1}, min_crews_needed=2,
-            predecessors=["4.9"]),
-        ],
-        
-    "SecondeOeuvre": [
-        BaseTask(
-            id="5.1", name="Maçonnerie", discipline="SecondeOeuvre",
-            resource_type="Maçonnerie", task_type="worker",
-            min_equipment_needed={"Grue à tour": 1}, min_crews_needed=2,
-            predecessors=[]
-        ),
-         BaseTask(
-            id="5.2", name="Cloisennement", discipline="SecondeOeuvre",
-            resource_type="Cloisennement", task_type="hybrid",
-            min_equipment_needed={"Grue à tour": 1}, min_crews_needed=2,
-            predecessors=[]
-        ),
-        BaseTask(
-            id="5.3", name="Etanchiété", discipline="SecondeOeuvre",
-            resource_type="Etanchiété", task_type="worker",
-            min_equipment_needed={"Grue à tour": 1}, min_crews_needed=2,
-            predecessors=["5.1","5.2"]
-        ),
-        BaseTask(
-            id="5.4", name="Carrelage", discipline="SecondeOeuvre",
-            resource_type="Revetement", task_type="hybrid",
-            min_equipment_needed={"Grue à tour": 1}, min_crews_needed=2,
-            predecessors=["5.3"]
-        ),
-        BaseTask(
-            id="5.5", name="Marbre", discipline="SecondeOeuvre",
-            resource_type="Revetement", task_type="hybrid",
-            min_equipment_needed={"Grue à tour": 1}, min_crews_needed=2,
-            predecessors=["5.3"]
-        ),
-        BaseTask(
-            id="5.6", name="Peinture", discipline="SecondeOeuvre",
-            resource_type="Peinture", task_type="worker",
-            min_crews_needed=2, predecessors=["5.3"]
-        ),
-        BaseTask(
-            id="5.7", name="Enduit", discipline="SecondeOeuvre",
-            resource_type="Enduit", task_type="worker",
-            min_crews_needed=2, predecessors=["5.6"]
-        ),
-    ],
-}
-
-acceleration = {
-    "Terrassement": {"factor": 3.0},  # up to 5 crews
-    "Fondations": {"factor": 2},    # up to 3 crews
-    "Superstructure": {"factor": 1.0},    # allow at most 2
-    "default": {"factor": 1.0},
-}
-
-cross_floor_links = {
-    "2.1": ["1.2"],
-    "4.1": ["4.7"],
-    "4.2": ["4.7"],
-    "4.3": ["4.7"],  # Columns(F+1) depend on Slab(F)
-    "4.8": ["4.7"],
-    "5.1": ["4.7"],  # Masonry(F) depends on Slab(F) (cross-floor carryover)
-    # Waterproofing(F) depends on Masonry(F-1) if needed
-    # Add more as project requires
-}
-SHIFT_CONFIG = {
-    "default": 1.0,       # fallback if discipline not specified
-    "Terrassement": 2.0,      # concrete works use two shifts
-    "GrosOeuvres": 1.5,    # e.g., extended hours, not full 2 shifts
-    "SecondeOeuvres": 1.0,     # normal single shift
-   }   # maybe structure works are also two shifts
-
-
-zone_floors = {"A": 4,"B": 13,}
-
 def run_schedule(zone_floors, quantity_matrix, start_date, holidays=None):
     """
     Wraps your scheduling logic. Returns dict of DataFrames.
@@ -1734,9 +1342,8 @@ def generate_equipment_template(equipment):
     
 def run_schedule(zone_floors, quantity_matrix, start_date, workers_dict=None, equipment_dict=None, holidays=None):
     """
-    Wraps scheduling logic.
-    Uses user-provided dictionaries if uploaded; otherwise defaults.
-    Returns dict of DataFrames and output folder path.
+    Run the scheduling logic using either default dictionaries or uploaded user data.
+    Returns schedule (dict of DataFrames) and output folder path.
     """
     from reporting import BasicReporter
 
@@ -1747,10 +1354,10 @@ def run_schedule(zone_floors, quantity_matrix, start_date, workers_dict=None, eq
     # Generate tasks
     tasks = generate_tasks(BASE_TASKS, zone_floors, cross_floor_links=cross_floor_links)
 
-    # Validate and patch tasks
+    # Validate tasks and patch missing data
     tasks, workers_used, equipment_used, quantity_matrix = validate_tasks(tasks, workers_used, equipment_used, quantity_matrix)
 
-    # Setup calendar and duration calculator
+    # Calendar and duration
     workweek = [0, 1, 2, 3, 4, 5]
     cal = AdvancedCalendar(start_date=start_date, holidays=holidays, workweek=workweek)
     dur_calc = DurationCalculator(workers_used, equipment_used, quantity_matrix)
@@ -1767,18 +1374,20 @@ def run_schedule(zone_floors, quantity_matrix, start_date, workers_dict=None, eq
 
 # ---------------- Final generate_schedule_ui ----------------
 def generate_schedule_ui():
+    import streamlit as st
+    import os
+    import pandas as pd
+
     st.header("📅 Generate Project Schedule")
-    st.markdown(
-        """
-        Upload or define your project input files.
+    st.markdown("""
+        Upload or define your project inputs:
         - Quantities per task/zone/floor
         - Worker and equipment resources
-        - Output: Schedule, Gantt, Utilizations
-        """
-    )
+        - Outputs: Schedule, Gantt, Utilizations
+    """)
 
-    # Define Zones & Floors
-    st.subheader("🏗️ Define Project Zones & Floors")
+    # ---------------- Zones & Floors ----------------
+    st.subheader("🏗️ Define Zones & Floors")
     zones_floors = {}
     num_zones = st.number_input("Number of zones?", min_value=1, max_value=20, value=2)
     for i in range(num_zones):
@@ -1786,7 +1395,7 @@ def generate_schedule_ui():
         max_floor = st.number_input(f"Max floors for {zone_name}", min_value=0, max_value=100, value=5, key=f"floor_{i}")
         zones_floors[zone_name] = max_floor
 
-    # Generate templates
+    # ---------------- Generate Templates ----------------
     if st.button("📁 Generate Default Templates"):
         # Quantity template
         qty_file = generate_quantity_template(BASE_TASKS, zones_floors)
@@ -1803,11 +1412,10 @@ def generate_schedule_ui():
         with open(equip_file, "rb") as f:
             st.download_button("⬇️ Download Equipment Template", f, file_name="equipment_template.xlsx")
 
-    # Upload input files
+    # ---------------- Upload User Files ----------------
     quantity_file = st.file_uploader("📤 Upload Quantity Matrix (Excel)", type=["xlsx"])
     worker_file = st.file_uploader("📤 Upload Worker Template (Excel)", type=["xlsx"])
     equipment_file = st.file_uploader("📤 Upload Equipment Template (Excel)", type=["xlsx"])
-
     start_date = st.date_input("Project Start Date", value=pd.Timestamp.today())
 
     if st.button("🚀 Generate Schedule"):
@@ -1815,19 +1423,13 @@ def generate_schedule_ui():
             st.warning("Please upload the Quantity Matrix Excel.")
             return
 
-        # Read quantity matrix
-        quantity_matrix = pd.read_excel(quantity_file)
+        # Parse uploaded quantity matrix
+        df_qty = pd.read_excel(quantity_file)
+        quantity_matrix = parse_quantity_excel(df_qty)
 
-        # Override defaults if uploaded
-        workers_used = None
-        if worker_file:
-            df_workers = pd.read_excel(worker_file)
-            workers_used = parse_worker_excel(df_workers)  # function to convert uploaded file to workers dict
-
-        equipment_used = None
-        if equipment_file:
-            df_equip = pd.read_excel(equipment_file)
-            equipment_used = parse_equipment_excel(df_equip)  # function to convert uploaded file to equipment dict
+        # Optional overrides
+        workers_used = parse_worker_excel(pd.read_excel(worker_file)) if worker_file else None
+        equipment_used = parse_equipment_excel(pd.read_excel(equipment_file)) if equipment_file else None
 
         with st.spinner("Generating schedule..."):
             schedule, output_folder = run_schedule(
@@ -1835,9 +1437,8 @@ def generate_schedule_ui():
             )
 
         st.success("✅ Schedule generated successfully!")
-        st.info("All outputs are in the temporary folder. Download immediately.")
 
-        # Provide download links for outputs
+        # Provide download buttons for all outputs
         for file_name in os.listdir(output_folder):
             file_path = os.path.join(output_folder, file_name)
             with open(file_path, "rb") as f:
