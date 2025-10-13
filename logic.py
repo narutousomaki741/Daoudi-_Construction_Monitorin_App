@@ -1294,6 +1294,13 @@ def generate_schedule_ui():
         
         try:
             from reporting import generate_interactive_gantt
+            schedule_excel_path = os.path.join(output_folder, "construction_schedule_optimized.xlsx")
+           if os.path.exists(schedule_excel_path):
+           # Read the Excel file as DataFrame
+               schedule_df = pd.read_excel(schedule_excel_path)
+        
+            st.info(f"📊 Loaded schedule with {len(schedule_df)} tasks from construction_schedule_optimized.xlsx")
+            
             gantt_file = os.path.join(output_folder, f"interactive_gantt_{start_date.strftime('%Y%m%d')}.html")
             generate_interactive_gantt(schedule, gantt_file)
             if os.path.exists(gantt_file):
