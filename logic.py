@@ -13,79 +13,26 @@ import logging
 import loguru
 import streamlit as st
 import plotly.express as px
+from io import BytesIO
 from utils import save_excel_file
-from defaults import workers, equipment, BASE_TASKS, cross_floor_links, acceleration, SHIFT_CONFIG
-from helpers import parse_quantity_excel,parse_worker_excel,parse_equipment_excel
 from models import Task,BaseTask, WorkerResource, EquipmentResource
-
+from defaults import workers, equipment, BASE_TASKS, cross_floor_links, acceleration, SHIFT_CONFIG
+from helpers import (
+    parse_quantity_excel,
+    parse_worker_excel,
+    parse_equipment_excel,
+    generate_quantity_template,
+    generate_worker_template,
+    generate_equipment_template
+)
 logger = logging.getLogger(__name__)
 logging.basicConfig(
     level=logging.INFO,
     format="%(levelname)s: %(message)s"
 )
 ground_disciplines=["Préliminaire","Terrassement","Fondations"]
-# -----------------------------
-# Data classes: workers & equip
-# -----------------------------
-import pandas as pd
-from io import BytesIO
+# ----------------------------
 
-def load_quantity_excel(file):
-    """Override default quantities from uploaded Excel."""
-    if file is None:
-        return None
-    df = pd.read_excel(BytesIO(file.read()))
-    updated_dict = {}
-    for _, row in df.iterrows():
-        zone = row.get("Zone")
-        floor = row.get("Floor")
-        task_id = row.get("TaskID")
-        qty = row.get("Quantity")
-        if pd.notna(zone) and pd.notna(floor) and pd.notna(task_id) and pd.notna(qty):
-            updated_dict[(task_id, zone, floor)] = qty
-    return updated_dict
-
-def load_worker_excel(file):
-    """Override default worker counts/productivity from Excel."""
-    if file is None:
-        return None
-    df = pd.read_excel(BytesIO(file.read()))
-    updated_workers = {}
-    for _, row in df.iterrows():
-        name = row.get("Worker")
-        count = row.get("Count")
-        productivity = row.get("Productivity")
-        if pd.notna(name):
-            if name in workers:  # keep the existing object and just override
-                obj = workers[name]
-                if pd.notna(count):
-                    obj.count = count
-                if pd.notna(productivity):
-                    for task, val in productivity.items():
-                        obj.productivity_rates[task] = val
-                updated_workers[name] = obj
-    return updated_workers
-
-def load_equipment_excel(file):
-    """Override default equipment counts/productivity from Excel."""
-    if file is None:
-        return None
-    df = pd.read_excel(BytesIO(file.read()))
-    updated_equipment = {}
-    for _, row in df.iterrows():
-        name = row.get("Equipment")
-        count = row.get("Count")
-        productivity = row.get("Productivity")
-        if pd.notna(name):
-            if name in equipment:
-                obj = equipment[name]
-                if pd.notna(count):
-                    obj.count = count
-                if pd.notna(productivity):
-                    for task, val in productivity.items():
-                        obj.productivity_rates[task] = val
-                updated_equipment[name] = obj
-    return updated_equipment
 
 class ResourceAllocationList:
     def __init__(self):
@@ -1271,6 +1218,9 @@ def run_schedule(zone_floors, quantity_matrix, start_date, workers_dict=None, eq
     return schedule, output_folder
 
 # ---------------- Final generate_schedule_ui ----------------
+
+
+
 def generate_schedule_ui():
     st.header("📅 Generate Project Schedule")
     st.markdown("""
@@ -1285,24 +1235,21 @@ def generate_schedule_ui():
     zones_floors = {}
     num_zones = st.number_input("Number of zones?", min_value=1, max_value=20, value=2)
     for i in range(num_zones):
-        zone_name = st.text_input(f"Zone {i+1} Name", value=f"Zone_{i+1}")
+        zone_name = st.text_input(f"Zone {i+1} Name", value=f"Zone_{i+1}", key=f"zone_{i}")
         max_floor = st.number_input(f"Max floors for {zone_name}", min_value=0, max_value=100, value=5, key=f"floor_{i}")
         zones_floors[zone_name] = max_floor
 
-    # ---------------- Generate Templates ----------------
+    # ---------------- Generate Default Templates ----------------
     if st.button("📁 Generate Default Templates"):
-        # Quantity template
         qty_file = generate_quantity_template(BASE_TASKS, zones_floors)
         with open(qty_file, "rb") as f:
             st.download_button("⬇️ Download Quantity Template", f, file_name="quantity_template.xlsx")
 
-        # Worker template
-        worker_file = generate_worker_template(workers)
+        worker_file = generate_worker_template(default_workers)
         with open(worker_file, "rb") as f:
             st.download_button("⬇️ Download Worker Template", f, file_name="worker_template.xlsx")
 
-        # Equipment template
-        equip_file = generate_equipment_template(equipment)
+        equip_file = generate_equipment_template(default_equipment)
         with open(equip_file, "rb") as f:
             st.download_button("⬇️ Download Equipment Template", f, file_name="equipment_template.xlsx")
 
@@ -1312,24 +1259,46 @@ def generate_schedule_ui():
     equipment_file = st.file_uploader("📤 Upload Equipment Template (Excel)", type=["xlsx"])
     start_date = st.date_input("Project Start Date", value=pd.Timestamp.today())
 
+    # ---------------- Generate Schedule ----------------
     if st.button("🚀 Generate Schedule"):
         if not quantity_file:
             st.warning("Please upload the Quantity Matrix Excel.")
             return
 
-        # Parse uploaded quantity matrix
+        # Parse uploaded files
         df_qty = pd.read_excel(quantity_file)
         quantity_matrix = parse_quantity_excel(df_qty)
 
-        # Optional overrides
-        workers_used = parse_worker_excel(pd.read_excel(worker_file)) if worker_file else None
-        equipment_used = parse_equipment_excel(pd.read_excel(equipment_file)) if equipment_file else None
+        workers_used = default_workers
+        if worker_file:
+            try:
+                df_worker = pd.read_excel(worker_file)
+                workers_used = parse_worker_excel(df_worker)
+            except Exception as e:
+                st.error(f"Error parsing worker template: {e}")
+                return
 
+        equipment_used = default_equipment
+        if equipment_file:
+            try:
+                df_equip = pd.read_excel(equipment_file)
+                equipment_used = parse_equipment_excel(df_equip)
+            except Exception as e:
+                st.error(f"Error parsing equipment template: {e}")
+                return
+        # Run scheduling logic
         with st.spinner("Generating schedule..."):
-            schedule, output_folder = run_schedule(
-                zones_floors, quantity_matrix, start_date, workers_used, equipment_used
-            )
-
+            try:
+                schedule, output_folder = run_schedule(
+                    zones_floors,
+                    quantity_matrix,
+                    start_date,
+                    workers_dict=workers_used,
+                    equipment_dict=equipment_used
+                )
+            except Exception as e:
+                st.error(f"Failed to generate schedule: {e}")
+                return
         st.success("✅ Schedule generated successfully!")
 
         # Provide download buttons for all outputs
