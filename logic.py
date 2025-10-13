@@ -489,7 +489,7 @@ class DurationCalculator:
         # normalize allocated items
         crews = allocated_crews if allocated_crews is not None else max(1, task.min_crews_needed)
         eq_alloc = allocated_equipments if allocated_equipments is not None else (task.min_equipment_needed or {})
-
+        A=7
         if task.task_type == "worker":
             if task.resource_type not in self.workers:
                 raise ValueError(f"Worker resource '{task.resource_type}' not found for task {task.id}")
@@ -497,11 +497,11 @@ class DurationCalculator:
             # FIXED: Use task-specific productivity rate
             base_prod = self._get_productivity_rate(res, task.base_id, 1.0)
             # worker daily production = base_prod * crews * efficiency
-            daily_prod = base_prod * crews * res.efficiency
+            daily_prod = base_prod * crews 
             if daily_prod <= 0:
                 raise ValueError(f"Non-positive worker productivity for {task.id}")
             duration = qty / daily_prod
-
+            A=base_prod
         elif task.task_type == "equipment":
             if not eq_alloc:
                 raise ValueError(f"Equipment task {task.id} has no equipment specified")
@@ -526,8 +526,8 @@ class DurationCalculator:
             
             res = self.equipment[first_eq_type]
             base_prod = self._get_productivity_rate(res, task.base_id, 1.0)
-            daily_prod_total = base_prod * total_units * res.efficiency
-            
+            daily_prod_total = base_prod * total_units 
+            A=base_prod
             if daily_prod_total <= 0:
                 raise ValueError(f"Non-positive equipment productivity for {task.id}")
             duration = qty / daily_prod_total
@@ -539,10 +539,10 @@ class DurationCalculator:
             worker_res = self.workers[task.resource_type]
             # FIXED: Use task-specific productivity rate
             base_prod_worker = self._get_productivity_rate(worker_res, task.base_id, 1.0)
-            daily_worker_prod = base_prod_worker * crews * worker_res.efficiency
+            daily_worker_prod = base_prod_worker * crews 
             if daily_worker_prod <= 0:
                 raise ValueError(f"Non-positive worker productivity for {task.id}")
-
+            A=base_prod_worker
             # FIXED: Equipment-limited using only first equipment type
             daily_equip_prod = 0
             if eq_alloc:
@@ -558,7 +558,7 @@ class DurationCalculator:
                     eq_res = self.equipment[first_eq_type]
                     base_prod_eq = self._get_productivity_rate(eq_res, task.base_id, 1.0)
                     daily_equip_prod = base_prod_eq * total_units * eq_res.efficiency
-
+            
             # Worker duration
             duration_worker = qty / daily_worker_prod if daily_worker_prod > 0 else float('inf')
             
@@ -566,7 +566,7 @@ class DurationCalculator:
             duration_equip = qty / daily_equip_prod if daily_equip_prod > 0 else float('inf')
             
             # Use the longer duration (bottleneck)
-            duration = max(duration_worker, duration_equip)
+            duration = duration_worker
 
         else:
             raise ValueError(f"Unknown task_type: {task.task_type}")
@@ -586,7 +586,7 @@ class DurationCalculator:
             duration = 1.0
 
         duration_days = int(math.ceil(duration))
-        print(f"for {task.id} duration is {duration_days}")
+        print(f"for {task.id} duration is {duration_days} productivity is {A}")
         return max(1, duration_days)
 # -----------------------------
 # CPM Analyzer (day counts)
