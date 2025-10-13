@@ -1117,74 +1117,6 @@ def validate_tasks(tasks, workers, equipment, quantity_matrix):
     print("✅ Validation passed: all predecessors exist, no cycles.")
     return tasks, workers, equipment, quantity_matrix
 
-def generate_quantity_template(base_tasks, zones_floors):
-    """Generates an empty Excel template for quantity input by the user."""
-    records = []
-    for zone, max_floor in zones_floors.items():
-        for floor in range(max_floor + 1):
-            for discipline, tasks in base_tasks.items():
-                for task in tasks:
-                    records.append({
-                        "TaskID": task.id,
-                        "TaskName": task.name,
-                        "Zone": zone,
-                        "Floor": floor,
-                        "Discipline": discipline,
-                        "Quantity": "",  # User fills this
-                        "Unit": getattr(task, "unit", "")
-                    })
-    df = pd.DataFrame(records)
-    temp_dir = tempfile.mkdtemp(prefix="quantity_template_")
-    file_path = os.path.join(temp_dir, "quantity_template.xlsx")
-    df.to_excel(file_path, index=False)
-    return file_path
-
-TASK_ID_NAME = {}
-for discipline, tasks in BASE_TASKS.items():
-    for task in tasks:
-        TASK_ID_NAME[task.id] = task.name
-def generate_worker_template(workers):
-    """
-    Generates an Excel template for workers with task names instead of IDs.
-    """
-    records = []
-    for worker_name, worker in workers.items():
-        for task_id, prod_rate in worker.productivity_rates.items():
-            records.append({
-                "TaskName": TASK_ID_NAME.get(task_id, task_id),  # lookup task name
-                "WorkerType": worker.name,
-                "Count": worker.count,
-                "HourlyRate": worker.hourly_rate,
-                "ProductivityRate": prod_rate
-            })
-    df = pd.DataFrame(records)
-
-    temp_dir = tempfile.mkdtemp(prefix="worker_template_")
-    file_path = os.path.join(temp_dir, "worker_template.xlsx")
-    df.to_excel(file_path, index=False)
-    return file_path
-    
-def generate_equipment_template(equipment):
-    """
-    Generates an Excel template for equipment with task names instead of IDs.
-    """
-    records = []
-    for eq_name, eq in equipment.items():
-        for task_id, prod_rate in eq.productivity_rates.items():
-            records.append({
-                "TaskName": TASK_ID_NAME.get(task_id, task_id),  # lookup task name
-                "EquipmentType": eq.name,
-                "Count": eq.count,
-                "HourlyRate": eq.hourly_rate,
-                "ProductivityRate": prod_rate
-            })
-
-    df = pd.DataFrame(records)
-
-    temp_dir = tempfile.mkdtemp(prefix="equipment_template_")
-    file_path = os.path.join(temp_dir, "equipment_template.xlsx")
-    df.to_excel(file_path, index=False)
-    return file_path
     
 def run_schedule(zone_floors, quantity_matrix, start_date, workers_dict=None, equipment_dict=None, holidays=None):
     """
@@ -1240,23 +1172,28 @@ def generate_schedule_ui():
         zones_floors[zone_name] = max_floor
 
     # ---------------- Generate Default Templates ----------------
-    if st.button("📁 Generate Default Templates"):
-        qty_file = generate_quantity_template(BASE_TASKS, zones_floors)
-        with open(qty_file, "rb") as f:
-            st.download_button("⬇️ Download Quantity Template", f, file_name="quantity_template.xlsx")
+    st.subheader("📁 Generate Default Excel Templates")
+    if st.button("Generate Default Templates"):
+        try:
+            qty_file = generate_quantity_template(BASE_TASKS, zones_floors)
+            with open(qty_file, "rb") as f:
+                st.download_button("⬇️ Download Quantity Template", f, file_name="quantity_template.xlsx")
 
-        worker_file = generate_worker_template(default_workers)
-        with open(worker_file, "rb") as f:
-            st.download_button("⬇️ Download Worker Template", f, file_name="worker_template.xlsx")
+            worker_file = generate_worker_template(default_workers)
+            with open(worker_file, "rb") as f:
+                st.download_button("⬇️ Download Worker Template", f, file_name="worker_template.xlsx")
 
-        equip_file = generate_equipment_template(default_equipment)
-        with open(equip_file, "rb") as f:
-            st.download_button("⬇️ Download Equipment Template", f, file_name="equipment_template.xlsx")
+            equip_file = generate_equipment_template(default_equipment)
+            with open(equip_file, "rb") as f:
+                st.download_button("⬇️ Download Equipment Template", f, file_name="equipment_template.xlsx")
+        except Exception as e:
+            st.error(f"Failed to generate default templates: {e}")
 
     # ---------------- Upload User Files ----------------
-    quantity_file = st.file_uploader("📤 Upload Quantity Matrix (Excel)", type=["xlsx"])
-    worker_file = st.file_uploader("📤 Upload Worker Template (Excel)", type=["xlsx"])
-    equipment_file = st.file_uploader("📤 Upload Equipment Template (Excel)", type=["xlsx"])
+    st.subheader("📤 Upload Your Excel Files")
+    quantity_file = st.file_uploader("Quantity Matrix (Excel)", type=["xlsx"])
+    worker_file = st.file_uploader("Worker Template (Excel)", type=["xlsx"])
+    equipment_file = st.file_uploader("Equipment Template (Excel)", type=["xlsx"])
     start_date = st.date_input("Project Start Date", value=pd.Timestamp.today())
 
     # ---------------- Generate Schedule ----------------
@@ -1266,9 +1203,14 @@ def generate_schedule_ui():
             return
 
         # Parse uploaded files
-        df_qty = pd.read_excel(quantity_file)
-        quantity_matrix = parse_quantity_excel(df_qty)
+        try:
+            df_qty = pd.read_excel(quantity_file)
+            quantity_matrix = parse_quantity_excel(df_qty)
+        except Exception as e:
+            st.error(f"Error parsing quantity matrix: {e}")
+            return
 
+        # Worker data
         workers_used = default_workers
         if worker_file:
             try:
@@ -1278,6 +1220,7 @@ def generate_schedule_ui():
                 st.error(f"Error parsing worker template: {e}")
                 return
 
+        # Equipment data
         equipment_used = default_equipment
         if equipment_file:
             try:
@@ -1286,6 +1229,7 @@ def generate_schedule_ui():
             except Exception as e:
                 st.error(f"Error parsing equipment template: {e}")
                 return
+
         # Run scheduling logic
         with st.spinner("Generating schedule..."):
             try:
@@ -1299,13 +1243,32 @@ def generate_schedule_ui():
             except Exception as e:
                 st.error(f"Failed to generate schedule: {e}")
                 return
+
         st.success("✅ Schedule generated successfully!")
 
-        # Provide download buttons for all outputs
+        # ---------------- Download all generated files ----------------
+        st.subheader("📂 Download Generated Files")
         for file_name in os.listdir(output_folder):
             file_path = os.path.join(output_folder, file_name)
             with open(file_path, "rb") as f:
                 st.download_button(f"⬇️ {file_name}", f, file_name=file_name)
+
+        # ---------------- Download Interactive Gantt HTML ----------------
+        st.subheader("📊 Interactive Gantt Chart")
+        try:
+            from reporting import generate_interactive_gantt
+            gantt_file = os.path.join(output_folder, f"interactive_gantt_{start_date.strftime('%Y%m%d')}.html")
+            generate_interactive_gantt(schedule, gantt_file)
+            if os.path.exists(gantt_file):
+                with open(gantt_file, "rb") as f:
+                    st.download_button(
+                        label=f"⬇️ Download Interactive Gantt Chart (HTML, start {start_date.strftime('%Y-%m-%d')})",
+                        data=f,
+                        file_name=f"interactive_gantt_{start_date.strftime('%Y%m%d')}.html",
+                        mime="text/html"
+                    )
+        except Exception as e:
+            st.warning(f"Interactive Gantt could not be generated: {e}")
 
 def analyze_project_progress(reference_df: pd.DataFrame, actual_df: pd.DataFrame) -> pd.DataFrame:
     """
