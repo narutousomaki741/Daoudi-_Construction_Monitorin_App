@@ -117,7 +117,7 @@ equipment = {
     ),
 
     "Grue à tour": EquipmentResource(
-        "Grue à tour", count=80, hourly_rate=150,
+        "Grue à tour", count=180, hourly_rate=150,
         productivity_rates={"5.1": 10},
         type="Levage", max_equipment=8
     ),
