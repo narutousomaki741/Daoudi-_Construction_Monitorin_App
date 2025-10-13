@@ -118,9 +118,10 @@ class AdvancedResourceManager:
                 task_max = res_max_value[task_id]
                 candidate = min(candidate, int(task_max))
                 print(f"[ALLOC DEBUG] Using task-specific max_crews: {task_max} for task {task_id}")
-        elif res_max_value is not None and res_max_value > 0:
+        elif res_max_value is not None :
+            if res_max_value > 0:
             # Legacy single integer case
-            candidate = min(candidate, int(res_max_value))
+                candidate = min(candidate, int(res_max_value))
         
         print(f"[ALLOC DEBUG] {task.id} disc={task.discipline} min_needed={min_needed} "
               f"factor={factor} candidate={candidate} pool={total_pool} used={used}")
