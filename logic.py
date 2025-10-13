@@ -571,7 +571,6 @@ class DurationCalculator:
         else:
             raise ValueError(f"Unknown task_type: {task.task_type}")
 
-        duration *= task.risk_factor
         shift_factor = SHIFT_CONFIG.get(task.discipline, SHIFT_CONFIG.get("default", 1.0))
         duration = duration / shift_factor
         if task.floor > 1:
