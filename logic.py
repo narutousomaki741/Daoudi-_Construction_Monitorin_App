@@ -16,7 +16,7 @@ import plotly.express as px
 from io import BytesIO
 from utils import save_excel_file
 from models import Task,BaseTask, WorkerResource, EquipmentResource
-from defaults import workers ad defaul_workers, equipment as default_equipment, BASE_TASKS, cross_floor_links, acceleration, SHIFT_CONFIG
+from defaults import workers, equipment, BASE_TASKS, cross_floor_links, acceleration, SHIFT_CONFIG
 
 from helpers import (
     parse_quantity_excel,
