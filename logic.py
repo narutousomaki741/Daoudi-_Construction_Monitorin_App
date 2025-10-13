@@ -1307,54 +1307,215 @@ def generate_schedule_ui():
             with open(file_path, "rb") as f:
                 st.download_button(f"⬇️ {file_name}", f, file_name=file_name)
 
-def analyze_project_progress(reference_path, actual_path):
-    ref_df = pd.read_excel(reference_path, sheet_name="Schedule")
-    act_df = pd.read_excel(actual_path)
+def analyze_project_progress(reference_df: pd.DataFrame, actual_df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Compute planned vs actual progress time series and deviations.
+    Returns a DataFrame indexed by Date with PlannedProgress, Progress (daily average),
+    CumulativeActual and ProgressDeviation columns.
 
-    ref_df["Start"] = pd.to_datetime(ref_df["Start"])
-    ref_df["End"] = pd.to_datetime(ref_df["End"])
-    act_df["Date"] = pd.to_datetime(act_df["Date"])
+    This version is robust to:
+      - missing sheets/columns,
+      - empty uploaded files,
+      - different date formats,
+      - missing Progress column (treat as 0),
+      - gaps in dates (forward-fill).
+    """
+    # defensive copies
+    ref_df = reference_df.copy()
+    act_df = actual_df.copy()
 
-    ref_df["PlannedDuration"] = (ref_df["End"] - ref_df["Start"]).dt.days + 1
-    timeline = pd.date_range(ref_df["Start"].min(), ref_df["End"].max(), freq="D")
+    # Ensure expected columns exist in reference schedule
+    # Ideally the schedule sheet has columns Start, End, TaskID (or TaskName).
+    for col in ("Start", "End"):
+        if col not in ref_df.columns:
+            raise ValueError(f"Reference schedule missing required column '{col}'")
 
+    # Parse dates robustly
+    ref_df["Start"] = pd.to_datetime(ref_df["Start"], errors="coerce")
+    ref_df["End"] = pd.to_datetime(ref_df["End"], errors="coerce")
+    if ref_df["Start"].isna().all() or ref_df["End"].isna().all():
+        raise ValueError("Reference schedule dates could not be parsed. Check Start/End columns.")
+
+    # Build timeline (daily)
+    timeline_start = ref_df["Start"].min()
+    timeline_end = ref_df["End"].max()
+    if pd.isna(timeline_start) or pd.isna(timeline_end):
+        raise ValueError("Reference schedule dates invalid (start/end).")
+
+    timeline = pd.date_range(timeline_start.normalize(), timeline_end.normalize(), freq="D")
+
+    # Planned curve: fraction of tasks active on each day
     planned_curve = []
+    total_tasks = max(1, len(ref_df))  # avoid division by zero
     for day in timeline:
-        ongoing = ref_df[(ref_df["Start"] <= day) & (ref_df["End"] >= day)]
-        progress = len(ongoing) / len(ref_df)
-        planned_curve.append({"Date": day, "PlannedProgress": progress})
+        ongoing = ref_df[(ref_df["Start"].dt.normalize() <= day) & (ref_df["End"].dt.normalize() >= day)]
+        planned_progress = len(ongoing) / total_tasks
+        planned_curve.append({"Date": day, "PlannedProgress": planned_progress})
 
     planned_df = pd.DataFrame(planned_curve)
+    planned_df["Date"] = pd.to_datetime(planned_df["Date"])
+    planned_df = planned_df.set_index("Date")
 
-    actual_df = act_df.groupby("Date", as_index=False)["Progress"].mean()
-    actual_df["CumulativeActual"] = actual_df["Progress"].cumsum()
-    actual_df["CumulativeActual"] = actual_df["CumulativeActual"].clip(upper=1.0)
+    # Actual progress: expect actual_df to have Date and Progress columns
+    if "Date" not in act_df.columns:
+        # No actual progress provided — return planned_df with NaNs for actual
+        planned_df = planned_df.reset_index()
+        planned_df["Progress"] = 0.0
+        planned_df["CumulativeActual"] = planned_df["Progress"].cumsum().clip(upper=1.0)
+        planned_df["ProgressDeviation"] = planned_df["CumulativeActual"] - planned_df["PlannedProgress"]
+        return planned_df
 
-    analysis_df = pd.merge(planned_df, actual_df, on="Date", how="outer").fillna(method="ffill")
-    analysis_df["ProgressDeviation"] = analysis_df["CumulativeActual"] - analysis_df["PlannedProgress"]
-    return analysis_df
+    # Parse actual dates; handle missing or malformed Progress
+    act_df["Date"] = pd.to_datetime(act_df["Date"], errors="coerce")
+    act_df = act_df.dropna(subset=["Date"])
+    if act_df.empty:
+        # treat as no progress recorded
+        planned_df = planned_df.reset_index()
+        planned_df["Progress"] = 0.0
+        planned_df["CumulativeActual"] = planned_df["Progress"].cumsum().clip(upper=1.0)
+        planned_df["ProgressDeviation"] = planned_df["CumulativeActual"] - planned_df["PlannedProgress"]
+        return planned_df
+
+    if "Progress" not in act_df.columns:
+        # maybe user provided percent column named differently — try a few guesses
+        candidate = None
+        for c in ("Pct", "Percentage", "Percent", "Value"):
+            if c in act_df.columns:
+                candidate = c; break
+        if candidate:
+            act_df["Progress"] = pd.to_numeric(act_df[candidate], errors="coerce").fillna(0.0)
+        else:
+            act_df["Progress"] = 0.0
+    else:
+        act_df["Progress"] = pd.to_numeric(act_df["Progress"], errors="coerce").fillna(0.0)
+
+    # Aggregate actual progress by Date (mean)
+    actual_daily = act_df.groupby(act_df["Date"].dt.normalize(), as_index=True).agg({"Progress": "mean"})
+    actual_daily.index.name = "Date"
+
+    # Reindex to planned timeline with forward-fill/backfill as appropriate
+    full_index = pd.DatetimeIndex(timeline)
+    actual_daily = actual_daily.reindex(full_index, method=None)  # allow NaNs
+    actual_daily["Progress"] = actual_daily["Progress"].fillna(0.0)  # if no measurement => 0 progress that day
+
+    # Cumulative actual progress
+    actual_daily["CumulativeActual"] = actual_daily["Progress"].cumsum()
+    actual_daily["CumulativeActual"] = actual_daily["CumulativeActual"].clip(upper=1.0)
+
+    # Combine planned and actual
+    combined = pd.DataFrame(index=full_index)
+    combined["PlannedProgress"] = planned_df["PlannedProgress"].reindex(full_index, fill_value=0.0)
+    combined["Progress"] = actual_daily["Progress"]
+    combined["CumulativeActual"] = actual_daily["CumulativeActual"]
+    combined["ProgressDeviation"] = combined["CumulativeActual"] - combined["PlannedProgress"]
+    combined = combined.reset_index().rename(columns={"index": "Date"})
+    return combined
 def monitor_project_ui():
-    st.header("📊 Project Monitoring")
+    """
+    Streamlit UI for project monitoring. Only runs analysis when both files are present.
+    - reference_file: Reference schedule Excel (sheet 'Schedule' or a sheet having Start/End)
+    - actual_file: Actual progress Excel (must contain Date and Progress)
+    """
+    st.header("📊 Project Monitoring (S-Curve & Deviation)")
+    st.markdown(
+        "Upload a **Reference Schedule** (Excel with a 'Schedule' sheet containing Start/End) "
+        "and an **Actual Progress** file (Date, Progress). Analysis runs only when both are uploaded."
+    )
 
-    reference_file = st.file_uploader("Upload Reference Schedule (Excel)", type=["xlsx"])
-    actual_file = st.file_uploader("Upload Actual Progress (Excel)", type=["xlsx"])
-    from reporting import MonitoringReporter
+    reference_file = st.file_uploader("Upload Reference Schedule Excel (.xlsx) — the generated schedule (sheet 'Schedule')", type=["xlsx"], key="ref_schedule")
+    actual_file = st.file_uploader("Upload Actual Progress Excel (.xlsx) — rows with Date and Progress (0-1 or 0-100)", type=["xlsx"], key="actual_progress")
+
+    # show quick-help / sample templates
+    with st.expander("Help: expected formats / sample rows"):
+        st.markdown("""
+        **Reference schedule** — must contain `Start` and `End` columns (dates).  
+        Example sheet 'Schedule' created by the generator.  
+        **Actual progress** — should contain `Date` (date) and `Progress` (float 0-1 or 0-100).  
+        If Progress is 0-100, it will be normalized to 0-1.
+        """)
+
+    # If user uploaded the reference file only, show schedule preview and allow download
+    if reference_file and not actual_file:
+        try:
+            # try sheet named 'Schedule' first, otherwise first sheet
+            try:
+                ref_df = pd.read_excel(reference_file, sheet_name="Schedule")
+            except Exception:
+                reference_file.seek(0)
+                ref_df = pd.read_excel(reference_file)
+            st.subheader("Reference schedule preview")
+            st.dataframe(ref_df.head(200))
+            st.info("Upload an 'Actual Progress' file to perform monitoring analysis.")
+        except Exception as e:
+            st.error(f"Unable to read reference schedule: {e}")
+        return
+
+    # If both files present, compute analysis
     if reference_file and actual_file:
-        ref_df = pd.read_excel(reference_file)
-        act_df = pd.read_excel(actual_file)
+        try:
+            # Prefer sheet 'Schedule' for the reference file
+            try:
+                reference_file.seek(0)
+                ref_df = pd.read_excel(reference_file, sheet_name="Schedule")
+            except Exception:
+                reference_file.seek(0)
+                ref_df = pd.read_excel(reference_file)
 
-        reporter = MonitoringReporter(ref_df, act_df)
-        reporter.compute_analysis()
+            actual_file.seek(0)
+            act_df = pd.read_excel(actual_file)
 
-        st.subheader("📈 S-Curve")
-        st.plotly_chart(reporter.generate_scurve(), use_container_width=True)
+            # Normalize 'Progress' if expressed 0-100 to 0-1
+            if "Progress" in act_df.columns:
+                max_val = act_df["Progress"].max(skipna=True)
+                if max_val is not None and max_val > 1.1:
+                    act_df["Progress"] = act_df["Progress"] / 100.0
 
-        st.subheader("📊 Deviation Chart")
-        st.plotly_chart(reporter.generate_deviation_chart(), use_container_width=True)
+            # Use MonitoringReporter from reporting.py if available (preferred)
+            try:
+                from reporting import MonitoringReporter
+                reporter = MonitoringReporter(ref_df, act_df)
+                # If class implements compute_analysis() and plotting helpers:
+                if hasattr(reporter, "compute_analysis"):
+                    reporter.compute_analysis()
+                    analysis_df = getattr(reporter, "analysis_df", None)
+                    if analysis_df is None:
+                        # fallback to local analyzer
+                        analysis_df = analyze_project_progress(ref_df, act_df)
+                else:
+                    analysis_df = analyze_project_progress(ref_df, act_df)
+            except Exception:
+                # fallback if import/class fails
+                analysis_df = analyze_project_progress(ref_df, act_df)
 
-        st.download_button(
-            label="📥 Download Analysis CSV",
-            data=reporter.analysis_df.to_csv(index=False).encode('utf-8'),
-            file_name="progress_analysis.csv",
-            mime="text/csv"
+            # Show S-curve and deviation
+            st.subheader("📈 S-Curve (Planned vs Actual cumulative progress)")
+            if analysis_df.empty:
+                st.warning("No data produced by analysis.")
+            else:
+                # Using plotly express for a clean S-curve
+                import plotly.express as px
+                fig_s = px.line(analysis_df, x="Date", y=["PlannedProgress", "CumulativeActual"],
+                                labels={"value": "Cumulative Progress", "variable": "Series"},
+                                title="S-Curve: Planned vs Actual")
+                st.plotly_chart(fig_s, use_container_width=True)
+
+                st.subheader("📊 Deviation (Actual - Planned)")
+                fig_dev = px.area(analysis_df, x="Date", y="ProgressDeviation",
+                                  title="Progress Deviation (Actual - Planned)")
+                st.plotly_chart(fig_dev, use_container_width=True)
+
+            # provide analysis csv download
+            csv_bytes = analysis_df.to_csv(index=False).encode("utf-8")
+            st.download_button("⬇️ Download analysis CSV", csv_bytes, file_name="monitoring_analysis.csv", mime="text/csv")
+
+        except Exception as e:
+            st.error(f"Monitoring analysis failed: {e}")
+            import traceback, sys
+            tb = traceback.format_exc()
+            st.code(tb)
+        return
+
+    # If neither file provided
+    if not reference_file and not actual_file:
+        st.info("Upload files to start monitoring. For schedule generation use the Generate Schedule tab.")
         )
