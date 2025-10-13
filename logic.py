@@ -53,6 +53,8 @@ class ResourceAllocationList:
 # -----------------------------
 # Resource Managers
 # -----------------------------G
+
+
 class AdvancedResourceManager:
     """
     Manages worker crews with flexible allocation:
@@ -76,54 +78,53 @@ class AdvancedResourceManager:
         return used
 
     def compute_allocation(self, task, start, end):
-    # ... existing code ...
+        """
+        Flexible allocation policy.
+        Returns integer number of crews to allocate (>= min_crews_needed), or 0 if cannot satisfy minimum.
+        """
         if task.task_type == "equipment":
             return 0  # worker manager not responsible
 
         res_name = task.resource_type
         if res_name not in self.workers:
             return 0
+
         res = self.workers[res_name]
         total_pool = int(res.count)
-    
-    # find already-used crews in the window
+
+        # find already-used crews in the window
         used = self._used_crews(res_name, start, end)
         available = max(0, total_pool - used)
+
         min_needed = max(1, int(task.min_crews_needed))
-    
-    # acceleration config
+
+        # acceleration config may increase desired crews (factor) but we cap by task max and pool limits
         acc = acceleration.get(
-        task.discipline,
-        acceleration.get("default", {"factor": 1.0})
+            task.discipline,
+            acceleration.get("default", {"factor": 1.0})
         )
         factor = acc.get("factor", 1.0)
 
-    # ideal after acceleration
+        # ideal after acceleration (but must be <= disc_max and <= per-res max)
         candidate = int(math.ceil(min_needed * factor))
-    
-    # Get task-specific max_crews limit from dictionary
-        res_max_dict = getattr(res, "max_crews", {})
-        if isinstance(res_max_dict, dict):
-        # Use task-specific limit if available, otherwise use default
-            task_id = getattr(task, 'id', None)  # Assuming task has an 'id' attribute
-            if task_id and task_id in res_max_dict:
-                res_max = res_max_dict[task_id]
-                candidate = min(candidate, int(res_max))
-                print(f"[ALLOC DEBUG] Using task-specific max_crews: {res_max} for task {task_id}")
-            else:
-            # Fallback to global max_crews if task ID not found
-                res_max = getattr(res, "max_crews", None)
-                if res_max is not None and res_max > 0 and not isinstance(res_max, dict):
-                    candidate = min(candidate, int(res_max))
-        else:
-        # Handle legacy single-value max_crews
-            res_max = res_max_dict
-            if res_max is not None and res_max > 0:
-                candidate = min(candidate, int(res_max))
-    
+        
+        # FIXED: Handle max_crews properly for both dict and legacy int types
+        res_max_value = getattr(res, "max_crews", None)
+        
+        if isinstance(res_max_value, dict):
+            # Dictionary case: get task-specific limit
+            task_id = getattr(task, 'id', None)
+            if task_id and task_id in res_max_value:
+                task_max = res_max_value[task_id]
+                candidate = min(candidate, int(task_max))
+                print(f"[ALLOC DEBUG] Using task-specific max_crews: {task_max} for task {task_id}")
+        elif res_max_value is not None and res_max_value > 0:
+            # Legacy single integer case
+            candidate = min(candidate, int(res_max_value))
+        
         print(f"[ALLOC DEBUG] {task.id} disc={task.discipline} min_needed={min_needed} "
-          f"factor={factor} candidate={candidate} pool={total_pool} used={used}")
-    
+              f"factor={factor} candidate={candidate} pool={total_pool} used={used}")
+        
         # final allocation is the maximum we can give within [min_needed, candidate] limited by available
         allocated = min(candidate, available)
 
@@ -133,16 +134,16 @@ class AdvancedResourceManager:
             return 0
 
         return int(allocated)
-    
+
     def can_allocate(self, task, start, end):
         alloc = self.compute_allocation(task, start, end)
         return alloc >= max(1, getattr(task, "min_crews_needed", max(1, task.crews_needed)))
 
     def allocate(self, task, start, end, units):
         """
-    Reserve exactly `units` crews for this task in [start, end).
-    Returns units reserved or 0 on failure.
-       """
+        Reserve exactly `units` crews for this task in [start, end).
+        Returns units reserved or 0 on failure.
+        """
         if units is None or units <= 0:
             return 0
         # append allocation record
@@ -153,8 +154,6 @@ class AdvancedResourceManager:
         """Release all allocations associated with a task id."""
         for res_name in list(self.allocations.keys()):
             self.allocations[res_name] = [a for a in self.allocations[res_name] if a[0] != task_id]
-
-
 # -----------------------------
 # Equipment Manager (shared use)
 # -----------------------------
