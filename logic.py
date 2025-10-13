@@ -77,7 +77,12 @@ class AdvancedResourceManager:
 
     def compute_allocation(self, task, start, end):
     # ... existing code ...
-    
+        if task.task_type == "equipment":
+            return 0  # worker manager not responsible
+
+        res_name = task.resource_type
+        if res_name not in self.workers:
+            return 0
         res = self.workers[res_name]
         total_pool = int(res.count)
     
