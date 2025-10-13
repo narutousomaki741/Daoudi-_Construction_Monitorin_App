@@ -9,7 +9,7 @@ class WorkerResource:
     hourly_rate: float
     productivity_rates: dict   # {base_task_id: units_per_workday}
     skills: List[str]
-    max_crews: Optional[int] = None
+    max_crews: Optional[Dict[str, int]] = None
     overtime_factor: float = 1.5
     efficiency: float = 1.0
 
