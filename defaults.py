@@ -15,7 +15,12 @@ workers = {
             "3.7": 5, "3.10": 10, "3.11": 10, "3.13": 10, "4.3": 10, "4.4": 10,
             "4.6": 10, "4.7": 10, "4.9": 10, "4.10": 10
         },
-        skills=["BétonArmée"], max_crews=25
+        skills=["BétonArmée"],
+        max_crews={
+            "3.1": 25, "3.2": 25, "2.1": 25, "3.4": 25, "3.5": 25, "4.1": 25, "3.8": 25, "3.9": 25,
+            "3.7": 25, "3.10": 25, "3.11": 25, "3.13": 25, "4.3": 25, "4.4": 25,
+            "4.6": 25, "4.7": 25, "4.9": 25, "4.10": 25
+        }
     ),
 
     "Férrailleur": WorkerResource(
@@ -23,55 +28,66 @@ workers = {
         productivity_rates={
             "3.3": 400, "3.6": 180, "3.12": 300, "4.2": 180, "4.5": 300, "4.8": 120
         },
-        skills=["BétonArmée"], max_crews=25
+        skills=["BétonArmée"],
+        max_crews={
+            "3.3": 25, "3.6": 25, "3.12": 25, "4.2": 25, "4.5": 25, "4.8": 25
+        }
     ),
 
     "Topograph": WorkerResource(
         "Topograph", count=5, hourly_rate=18,
         productivity_rates={"1.3": 100},
-        skills=["BétonArmée"], max_crews=10
+        skills=["BétonArmée"],
+        max_crews={"1.3": 10}
     ),
 
     "ConstMétallique": WorkerResource(
         "ConstMétallique", count=3, hourly_rate=60,
         productivity_rates={"9.2": 8},
-        skills=["ConstMétallique"], max_crews=10
+        skills=["ConstMétallique"],
+        max_crews={"9.2": 10}
     ),
 
     "Maçonnerie": WorkerResource(
         "Maçonnerie", count=84, hourly_rate=40,
         productivity_rates={"5.1": 10},
-        skills=["Maçonnerie"], max_crews=25
+        skills=["Maçonnerie"],
+        max_crews={"5.1": 25}
     ),
 
     "Cloisennement": WorkerResource(
         "Cloisennement", count=84, hourly_rate=40,
         productivity_rates={"5.2": 10},
-        skills=["Cloisennement"], max_crews=25
+        skills=["Cloisennement"],
+        max_crews={"5.2": 25}
     ),
 
     "Etanchiété": WorkerResource(
         "Etanchiété", count=83, hourly_rate=40,
         productivity_rates={"5.3": 10},
-        skills=["Etanchiété"], max_crews=25
+        skills=["Etanchiété"],
+        max_crews={"5.3": 25}
     ),
 
     "Revetement": WorkerResource(
         "Revetement", count=84, hourly_rate=40,
         productivity_rates={"5.4": 15, "5.5": 10},
-        skills=["Carrelage", "Marbre"], max_crews=15
+        skills=["Carrelage", "Marbre"],
+        max_crews={"5.4": 15, "5.5": 15}
     ),
 
     "Peinture": WorkerResource(
         "Peinture", count=8, hourly_rate=40,
         productivity_rates={"5.6": 10, "5.7": 25},
-        skills=["Peinture"], max_crews=15
+        skills=["Peinture"],
+        max_crews={"5.6": 15, "5.7": 15}
     ),
 
     "Enduit": WorkerResource(
         "Enduit", count=8, hourly_rate=40,
         productivity_rates={"5.6": 10, "5.7": 25},
-        skills=["Enduit"], max_crews=15
+        skills=["Enduit"],
+        max_crews={"5.6": 15, "5.7": 15}
     ),
 }
 
