@@ -11,40 +11,6 @@ TASK_ID_NAME = {task.id: task.name for tasks in BASE_TASKS.values() for task in 
 
 # ------------------------- Parse Functions -------------------------
 
-def parse_worker_excel(df: pd.DataFrame) -> Dict[str, WorkerResource]:
-    """
-    Parse an uploaded worker Excel file into WorkerResource objects.
-    Expected columns: WorkerType, Count, HourlyRate, ProductivityRate, TaskName
-    """
-    workers_dict = {}
-
-    for _, row in df.iterrows():
-        worker_type = str(row.get("WorkerType", "")).strip()
-        if not worker_type:
-            continue
-
-        count = int(row.get("Count", 0))
-        hourly_rate = float(row.get("HourlyRate", 0))
-
-        # Parse productivity: map TaskName back to TaskID
-        task_name = str(row.get("TaskName", "")).strip()
-        prod_rate = float(row.get("ProductivityRate", 0))
-        task_id = next((tid for tid, tname in TASK_ID_NAME.items() if tname == task_name), task_name)
-        
-        # Initialize or update WorkerResource
-        if worker_type not in workers_dict:
-            workers_dict[worker_type] = WorkerResource(
-                name=worker_type,
-                count=count,
-                hourly_rate=hourly_rate,
-                productivity_rates={task_id: prod_rate},
-                skills=[worker_type],
-                max_crews=1
-            )
-        else:
-            workers_dict[worker_type].productivity_rates[task_id] = prod_rate
-
-    return workers_dict if workers_dict else default_workers
 
 def parse_worker_excel(df: pd.DataFrame) -> Dict[str, WorkerResource]:
     """
@@ -53,6 +19,9 @@ def parse_worker_excel(df: pd.DataFrame) -> Dict[str, WorkerResource]:
     """
     workers_dict = {}
 
+    # First pass: collect all data for each worker type
+    worker_data = {}
+    
     for _, row in df.iterrows():
         worker_type = str(row.get("WorkerType", "")).strip()
         if not worker_type:
@@ -64,33 +33,32 @@ def parse_worker_excel(df: pd.DataFrame) -> Dict[str, WorkerResource]:
         # Parse productivity: map TaskName back to TaskID
         task_name = str(row.get("TaskName", "")).strip()
         prod_rate = float(row.get("ProductivityRate", 0))
+        max_crews = int(row.get("MaxCrews", 1))
         task_id = next((tid for tid, tname in TASK_ID_NAME.items() if tname == task_name), task_name)
         
-        # Parse max_crews (NEW)
-        max_crews = int(row.get("MaxCrews", 1))
+        # Store data for this worker type
+        if worker_type not in worker_data:
+            worker_data[worker_type] = {
+                'count': count,
+                'hourly_rate': hourly_rate,
+                'productivity_rates': {},
+                'max_crews': {}
+            }
         
-        # Initialize or update WorkerResource
-        if worker_type not in workers_dict:
-            workers_dict[worker_type] = WorkerResource(
-                name=worker_type,
-                count=count,
-                hourly_rate=hourly_rate,
-                productivity_rates={task_id: prod_rate},
-                skills=[worker_type],
-                max_crews={task_id: max_crews}  # CHANGED: Now a dictionary
-            )
-        else:
-            # Update productivity rates
-            workers_dict[worker_type].productivity_rates[task_id] = prod_rate
-            # Update max_crews dictionary (NEW)
-            if hasattr(workers_dict[worker_type], 'max_crews'):
-                if isinstance(workers_dict[worker_type].max_crews, dict):
-                    workers_dict[worker_type].max_crews[task_id] = max_crews
-                else:
-                    # Convert from single value to dictionary
-                    workers_dict[worker_type].max_crews = {task_id: max_crews}
-            else:
-                workers_dict[worker_type].max_crews = {task_id: max_crews}
+        # Add task-specific data for BOTH productivity_rates and max_crews
+        worker_data[worker_type]['productivity_rates'][task_id] = prod_rate
+        worker_data[worker_type]['max_crews'][task_id] = max_crews
+
+    # Second pass: create WorkerResource objects
+    for worker_type, data in worker_data.items():
+        workers_dict[worker_type] = WorkerResource(
+            name=worker_type,
+            count=data['count'],
+            hourly_rate=data['hourly_rate'],
+            productivity_rates=data['productivity_rates'],  # Complete dictionary
+            skills=[worker_type],
+            max_crews=data['max_crews']  # Complete dictionary
+        )
 
     return workers_dict if workers_dict else default_workers
 
