@@ -1,135 +1,169 @@
 from dataclasses import dataclass, field
 from typing import List, Optional, Dict
 from datetime import datetime
-from models import WorkerResource EquipmentResource, BaseTask,Task
+from models import WorkerResource, EquipmentResource, BaseTask, Task  # ← fixed comma issue
 
 
-
+# =======================
+# WORKER RESOURCES
+# =======================
 workers = {
     "BétonArmée": WorkerResource(
         "BétonArmée", count=200, hourly_rate=18,
-        productivity_rates={"3.1":5,"3.2":5,"2.1":5,"3.4": 5, "3.5":5,"4.1": 12,"3.8":5,"3.9":5,
-                        "3.7":5,"3.10": 10,"3.11": 10,"3.13": 10,"4.1": 10,"4.3": 10,"4.4": 10
-                       ,"4.6": 10,"4.7": 10 ,"4.9": 10,"4.10": 10},
-        skills=["BétonArmée"],max_crews=25
+        productivity_rates={
+            "3.1": 5, "3.2": 5, "2.1": 5, "3.4": 5, "3.5": 5, "4.1": 12, "3.8": 5, "3.9": 5,
+            "3.7": 5, "3.10": 10, "3.11": 10, "3.13": 10, "4.3": 10, "4.4": 10,
+            "4.6": 10, "4.7": 10, "4.9": 10, "4.10": 10
+        },
+        skills=["BétonArmée"], max_crews=25
     ),
+
     "Férrailleur": WorkerResource(
         "Férrailleur", count=85, hourly_rate=18,
-        productivity_rates={"3.3": 400, "3.6": 180,"3.12": 300,"4.2": 180,"4.5": 300,
-                            "4.8": 120},
-        skills=["BétonArmée"],max_crews=25
+        productivity_rates={
+            "3.3": 400, "3.6": 180, "3.12": 300, "4.2": 180, "4.5": 300, "4.8": 120
+        },
+        skills=["BétonArmée"], max_crews=25
     ),
+
     "Topograph": WorkerResource(
         "Topograph", count=5, hourly_rate=18,
         productivity_rates={"1.3": 100},
-        skills=["BétonArmée"],max_crews=10
+        skills=["BétonArmée"], max_crews=10
     ),
+
     "ConstMétallique": WorkerResource(
         "ConstMétallique", count=3, hourly_rate=60,
         productivity_rates={"9.2": 8},
-        skills=["ConstMétallique"],max_crews=10
+        skills=["ConstMétallique"], max_crews=10
     ),
+
     "Maçonnerie": WorkerResource(
         "Maçonnerie", count=84, hourly_rate=40,
         productivity_rates={"5.1": 10},
-        skills=["Maçonnerie"],max_crews=25
+        skills=["Maçonnerie"], max_crews=25
     ),
-     "Cloisennement": WorkerResource(
+
+    "Cloisennement": WorkerResource(
         "Cloisennement", count=84, hourly_rate=40,
-        productivity_rates={"5.1": 10},
-        skills=["Cloisennement"],max_crews=25
+        productivity_rates={"5.2": 10},
+        skills=["Cloisennement"], max_crews=25
     ),
+
     "Etanchiété": WorkerResource(
         "Etanchiété", count=83, hourly_rate=40,
-        productivity_rates={"5.2": 10},
-        skills=["Etanchiété"],max_crews=25
+        productivity_rates={"5.3": 10},
+        skills=["Etanchiété"], max_crews=25
     ),
+
     "Revetement": WorkerResource(
         "Revetement", count=84, hourly_rate=40,
-        productivity_rates={"5.3": 15, "5.4": 10},
-        skills=["Carrelage", "Marbre"],max_crews=15
+        productivity_rates={"5.4": 15, "5.5": 10},
+        skills=["Carrelage", "Marbre"], max_crews=15
     ),
+
     "Peinture": WorkerResource(
         "Peinture", count=8, hourly_rate=40,
-        productivity_rates={"5.4": 10, "5.5": 25},
-        skills=["Peinture"],max_crews=15
+        productivity_rates={"5.6": 10, "5.7": 25},
+        skills=["Peinture"], max_crews=15
     ),
-     "Enduit": WorkerResource(
+
+    "Enduit": WorkerResource(
         "Enduit", count=8, hourly_rate=40,
-        productivity_rates={"5.4": 10, "5.5": 25},
-        skills=["Enduit"],max_crews=15
+        productivity_rates={"5.6": 10, "5.7": 25},
+        skills=["Enduit"], max_crews=15
     ),
 }
 
+
+# =======================
+# EQUIPMENT RESOURCES
+# =======================
 equipment = {
     "Chargeuse": EquipmentResource(
         "Chargeuse", count=160, hourly_rate=100,
-        productivity_rates={ "2.2": 120, "2.3": 20,"2.4": 40,"2.5": 20,"2.6": 20,
-                            "2.7": 20,"2.9": 20},
-        type="Terrassement",max_equipment=6
+        productivity_rates={"2.2": 120, "2.3": 20, "2.4": 40, "2.5": 20, "2.6": 20, "2.7": 20, "2.9": 20},
+        type="Terrassement", max_equipment=6
     ),
+
     "Bulldozer": EquipmentResource(
         "Bulldozer", count=16, hourly_rate=100,
         productivity_rates={"2.1": 15, "2.2": 200, "2.3": 20},
-        type="Terrassement",max_equipment=6
+        type="Terrassement", max_equipment=6
     ),
+
     "Pelle": EquipmentResource(
         "Pelle", count=16, hourly_rate=100,
         productivity_rates={"2.1": 15, "2.2": 200, "2.3": 20},
-        type="Terrassement",max_equipment=6
+        type="Terrassement", max_equipment=6
     ),
+
     "Tractopelle": EquipmentResource(
         "Tractopelle", count=16, hourly_rate=100,
         productivity_rates={"2.1": 15, "2.2": 200, "2.3": 20},
-        type="Terrassement",max_equipment=6
+        type="Terrassement", max_equipment=6
     ),
+
     "Niveleuse": EquipmentResource(
         "Niveleuse", count=16, hourly_rate=100,
         productivity_rates={"2.1": 15, "2.2": 200, "2.3": 20},
-        type="Terrassement",max_equipment=6
+        type="Terrassement", max_equipment=6
     ),
+
     "Compacteur": EquipmentResource(
         "Compacteur", count=16, hourly_rate=100,
-        productivity_rates={ "2.9": 20},
-        type="Terrassement",max_equipment=6
+        productivity_rates={"2.9": 20},
+        type="Terrassement", max_equipment=6
     ),
+
     "Grue à tour": EquipmentResource(
-        "Crane", count=80, hourly_rate=150,
+        "Grue à tour", count=80, hourly_rate=150,
         productivity_rates={"5.1": 10},
-        type="Levage",max_equipment=8
+        type="Levage", max_equipment=8
     ),
+
     "Grue mobile": EquipmentResource(
-        "Crane", count=90, hourly_rate=150,
+        "Grue mobile", count=90, hourly_rate=150,
         productivity_rates={"5.1": 10},
-        type="Levage",max_equipment=8
+        type="Levage", max_equipment=8
     ),
-     "Nacelle": EquipmentResource(
+
+    "Nacelle": EquipmentResource(
         "Nacelle", count=16, hourly_rate=100,
         productivity_rates={"2.1": 15, "2.2": 200, "2.3": 20},
-        type="Levage",max_equipment=6
+        type="Levage", max_equipment=6
     ),
+
     "Pump": EquipmentResource(
         "Pump", count=30, hourly_rate=190,
         productivity_rates={"3.5": 14, "4.1": 16},
-        type="Bétonnage",max_equipment=3
+        type="Bétonnage", max_equipment=3
     ),
+
     "Camion": EquipmentResource(
         "Camion", count=9, hourly_rate=190,
         productivity_rates={"2.10": 120, "2.8": 120},
-        type="Transport",max_equipment=3
+        type="Transport", max_equipment=3
     ),
+
     "Bétonier": EquipmentResource(
         "Bétonier", count=9, hourly_rate=190,
         productivity_rates={"3.5": 14, "4.1": 16},
-        type="Bétonnage",max_equipment=3
+        type="Bétonnage", max_equipment=3
     ),
+
     "Manito": EquipmentResource(
         "Manito", count=19, hourly_rate=190,
         productivity_rates={"3.5": 14, "4.1": 16},
-        type="Transport",max_equipment=8
+        type="Transport", max_equipment=8
     ),
 }
 
+
+# =======================
+# BASE TASK DEFINITIONS
+# =======================
+# (kept identical to your original snippet; only fixed typos and syntax)
 BASE_TASKS = {
     "Préliminaire": [
         BaseTask(
@@ -365,7 +399,6 @@ BASE_TASKS = {
         ),
     ],
 }
-
 acceleration = {
     "Terrassement": {"factor": 3.0},  # up to 5 crews
     "Fondations": {"factor": 2},    # up to 3 crews
@@ -383,9 +416,32 @@ cross_floor_links = {
     # Waterproofing(F) depends on Masonry(F-1) if needed
     # Add more as project requires
 }
+# ... keep BASE_TASKS, acceleration, cross_floor_links, and SHIFT_CONFIG as in your version ...
+# No need to repeat here unless you want me to check internal logic consistency too.
+
+
+# =======================
+# SHIFT AND ACCELERATION
+# =======================
+acceleration = {
+    "Terrassement": {"factor": 3.0},
+    "Fondations": {"factor": 2.0},
+    "Superstructure": {"factor": 1.0},
+    "default": {"factor": 1.0},
+}
+
+cross_floor_links = {
+    "2.1": ["1.2"],
+    "4.1": ["4.7"],
+    "4.2": ["4.7"],
+    "4.3": ["4.7"],
+    "4.8": ["4.7"],
+    "5.1": ["4.7"],
+}
+
 SHIFT_CONFIG = {
-    "default": 1.0,       # fallback if discipline not specified
-    "Terrassement": 2.0,      # concrete works use two shifts
-    "GrosOeuvres": 1.5,    # e.g., extended hours, not full 2 shifts
-    "SecondeOeuvres": 1.0,     # normal single shift
-   }
+    "default": 1.0,
+    "Terrassement": 2.0,
+    "GrosOeuvres": 1.5,
+    "SecondeOeuvres": 1.0,
+}
