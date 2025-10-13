@@ -1155,6 +1155,7 @@ def run_schedule(zone_floors, quantity_matrix, start_date, workers_dict=None, eq
 
 
 def generate_schedule_ui():
+    from reporting import generate_interactive_gantt
     st.header("📅 Generate Project Schedule")
     st.markdown("""
         Upload or define your project inputs:
@@ -1256,7 +1257,7 @@ def generate_schedule_ui():
 
         # ---------------- Download Interactive Gantt HTML ----------------
         st.subheader("📊 Interactive Gantt Chart")
-        from reporting import generate_interactive_gantt
+        
         try:
             from reporting import generate_interactive_gantt
             gantt_file = os.path.join(output_folder, f"interactive_gantt_{start_date.strftime('%Y%m%d')}.html")
