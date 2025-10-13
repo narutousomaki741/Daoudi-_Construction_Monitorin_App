@@ -17,6 +17,7 @@ from io import BytesIO
 from utils import save_excel_file
 from models import Task,BaseTask, WorkerResource, EquipmentResource
 from defaults import workers, equipment, BASE_TASKS, cross_floor_links, acceleration, SHIFT_CONFIG
+
 from helpers import (
     parse_quantity_excel,
     parse_worker_excel,
@@ -1255,6 +1256,7 @@ def generate_schedule_ui():
 
         # ---------------- Download Interactive Gantt HTML ----------------
         st.subheader("📊 Interactive Gantt Chart")
+        from reporting import generate_interactive_gantt
         try:
             from reporting import generate_interactive_gantt
             gantt_file = os.path.join(output_folder, f"interactive_gantt_{start_date.strftime('%Y%m%d')}.html")
