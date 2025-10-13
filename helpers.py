@@ -15,7 +15,7 @@ TASK_ID_NAME = {task.id: task.name for tasks in BASE_TASKS.values() for task in 
 def parse_worker_excel(df: pd.DataFrame) -> Dict[str, WorkerResource]:
     """
     Parse an uploaded worker Excel file into WorkerResource objects.
-    Expected columns: WorkerType, Count, HourlyRate, ProductivityRate, TaskName, MaxCrews
+    Expected columns: WorkerType, Count, HourlyRate, ProductivityRate, TaskName,TaskID, MaxCrews
     """
     workers_dict = {}
 
@@ -34,7 +34,7 @@ def parse_worker_excel(df: pd.DataFrame) -> Dict[str, WorkerResource]:
         task_name = str(row.get("TaskName", "")).strip()
         prod_rate = float(row.get("ProductivityRate", 0))
         max_crews = int(row.get("MaxCrews", 1))
-        task_id = next((tid for tid, tname in TASK_ID_NAME.items() if tname == task_name), task_name)
+        task_id = str(row.get("TaskID", "")).strip()
         
         # Store data for this worker type
         if worker_type not in worker_data:
@@ -65,9 +65,12 @@ def parse_worker_excel(df: pd.DataFrame) -> Dict[str, WorkerResource]:
 def parse_equipment_excel(df: pd.DataFrame) -> Dict[str, EquipmentResource]:
     """
     Parse an uploaded equipment Excel file into EquipmentResource objects.
-    Expected columns: EquipmentType, Count, HourlyRate, ProductivityRate, TaskName
+    Expected columns: EquipmentType, Count, HourlyRate, ProductivityRate, TaskName,TaskID, MaxEquipment
     """
     equipment_dict = {}
+    
+    # First pass: collect all data for each equipment type
+    equipment_data = {}
 
     for _, row in df.iterrows():
         eq_type = str(row.get("EquipmentType", "")).strip()
@@ -80,23 +83,34 @@ def parse_equipment_excel(df: pd.DataFrame) -> Dict[str, EquipmentResource]:
         # Parse productivity: map TaskName back to TaskID
         task_name = str(row.get("TaskName", "")).strip()
         prod_rate = float(row.get("ProductivityRate", 0))
-        task_id = next((tid for tid, tname in TASK_ID_NAME.items() if tname == task_name), task_name)
+        max_equipment = int(row.get("MaxEquipment", 1))  # NEW: Parse MaxEquipment
+        task_id = str(row.get("TaskID", "")).strip()
         
-        # Initialize or update EquipmentResource
-        if eq_type not in equipment_dict:
-            equipment_dict[eq_type] = EquipmentResource(
-                name=eq_type,
-                count=count,
-                hourly_rate=hourly_rate,
-                productivity_rates={task_id: prod_rate},
-                max_equipment=1,
-                type="general"
-            )
-        else:
-            equipment_dict[eq_type].productivity_rates[task_id] = prod_rate
+        # Store data for this equipment type
+        if eq_type not in equipment_data:
+            equipment_data[eq_type] = {
+                'count': count,
+                'hourly_rate': hourly_rate,
+                'productivity_rates': {},
+                'max_equipment': {}
+            }
+        
+        # Add task-specific data
+        equipment_data[eq_type]['productivity_rates'][task_id] = prod_rate
+        equipment_data[eq_type]['max_equipment'][task_id] = max_equipment
+
+    # Second pass: create EquipmentResource objects
+    for eq_type, data in equipment_data.items():
+        equipment_dict[eq_type] = EquipmentResource(
+            name=eq_type,
+            count=data['count'],
+            hourly_rate=data['hourly_rate'],
+            productivity_rates=data['productivity_rates'],
+            max_equipment=data['max_equipment'],  # Now a dictionary
+            type="general"
+        )
 
     return equipment_dict if equipment_dict else default_equipment
-
 
 def parse_quantity_excel(df: pd.DataFrame) -> Dict[str, float]:
     """
@@ -116,6 +130,66 @@ def parse_quantity_excel(df: pd.DataFrame) -> Dict[str, float]:
 
 
 # ------------------------- Template Generation -------------------------
+
+def generate_worker_template(workers_dict=default_workers):
+    """
+    Generates an Excel template for workers with task names instead of IDs.
+    """
+    records = []
+    for worker_name, worker in workers_dict.items():
+        for task_id, prod_rate in worker.productivity_rates.items():
+            # Get max_crews for this specific task
+            max_crews = 1  # default
+            if hasattr(worker, 'max_crews'):
+                if isinstance(worker.max_crews, dict):
+                    max_crews = worker.max_crews.get(task_id, 1)
+                else:
+                    max_crews = worker.max_crews if worker.max_crews else 20
+            
+            records.append({
+                 "TaskID":task_id,
+                "TaskName": TASK_ID_NAME.get(task_id, task_id),  # lookup task name
+                "WorkerType": worker.name,
+                "Count": worker.count,
+                "HourlyRate": worker.hourly_rate,
+                "ProductivityRate": prod_rate,
+                "MaxCrews": max_crews  # NEW: Add max_crews column
+            })
+    df = pd.DataFrame(records)
+    temp_dir = tempfile.mkdtemp(prefix="worker_template_")
+    file_path = os.path.join(temp_dir, "worker_template.xlsx")
+    df.to_excel(file_path, index=False)
+    return file_path
+    
+def generate_equipment_template(equipment_dict=default_equipment):
+    """
+    Generates an Excel template for equipment with task names instead of IDs.
+    """
+    records = []
+    for eq_name, eq in equipment_dict.items():
+        for task_id, prod_rate in eq.productivity_rates.items():
+            # Get max_equipment for this specific task
+            max_equipment = 1  # default
+            if hasattr(eq, 'max_equipment'):
+                if isinstance(eq.max_equipment, dict):
+                    max_equipment = eq.max_equipment.get(task_id, 1)
+                else:
+                    max_equipment = eq.max_equipment if eq.max_equipment else 1
+            
+            records.append({
+                "TaskID": task_id,
+                "TaskName": TASK_ID_NAME.get(task_id, task_id),  # lookup task name
+                "EquipmentType": eq.name,
+                "Count": eq.count,
+                "HourlyRate": eq.hourly_rate,
+                "ProductivityRate": prod_rate,
+                "MaxEquipment": max_equipment  # NEW: Add MaxEquipment column
+            })
+    df = pd.DataFrame(records)
+    temp_dir = tempfile.mkdtemp(prefix="equipment_template_")
+    file_path = os.path.join(temp_dir, "equipment_template.xlsx")
+    df.to_excel(file_path, index=False)
+    return file_path
 
 def generate_quantity_template(base_tasks=BASE_TASKS, zones_floors=None):
     """Generates an empty Excel template for quantity input by the user."""
@@ -138,54 +212,5 @@ def generate_quantity_template(base_tasks=BASE_TASKS, zones_floors=None):
     df = pd.DataFrame(records)
     temp_dir = tempfile.mkdtemp(prefix="quantity_template_")
     file_path = os.path.join(temp_dir, "quantity_template.xlsx")
-    df.to_excel(file_path, index=False)
-    return file_path
-
-def generate_worker_template(workers_dict=default_workers):
-    """
-    Generates an Excel template for workers with task names instead of IDs.
-    """
-    records = []
-    for worker_name, worker in workers_dict.items():
-        for task_id, prod_rate in worker.productivity_rates.items():
-            # Get max_crews for this specific task
-            max_crews = 1  # default
-            if hasattr(worker, 'max_crews'):
-                if isinstance(worker.max_crews, dict):
-                    max_crews = worker.max_crews.get(task_id, 1)
-                else:
-                    max_crews = worker.max_crews if worker.max_crews else 20
-            
-            records.append({
-                "TaskName": TASK_ID_NAME.get(task_id, task_id),  # lookup task name
-                "WorkerType": worker.name,
-                "Count": worker.count,
-                "HourlyRate": worker.hourly_rate,
-                "ProductivityRate": prod_rate,
-                "MaxCrews": max_crews  # NEW: Add max_crews column
-            })
-    df = pd.DataFrame(records)
-    temp_dir = tempfile.mkdtemp(prefix="worker_template_")
-    file_path = os.path.join(temp_dir, "worker_template.xlsx")
-    df.to_excel(file_path, index=False)
-    return file_path
-
-def generate_equipment_template(equipment_dict=default_equipment):
-    """
-    Generates an Excel template for equipment with task names instead of IDs.
-    """
-    records = []
-    for eq_name, eq in equipment_dict.items():
-        for task_id, prod_rate in eq.productivity_rates.items():
-            records.append({
-                "TaskName": TASK_ID_NAME.get(task_id, task_id),  # lookup task name
-                "EquipmentType": eq.name,
-                "Count": eq.count,
-                "HourlyRate": eq.hourly_rate,
-                "ProductivityRate": prod_rate
-            })
-    df = pd.DataFrame(records)
-    temp_dir = tempfile.mkdtemp(prefix="equipment_template_")
-    file_path = os.path.join(temp_dir, "equipment_template.xlsx")
     df.to_excel(file_path, index=False)
     return file_path
