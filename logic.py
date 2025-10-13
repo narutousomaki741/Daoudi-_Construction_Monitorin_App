@@ -1484,4 +1484,4 @@ def monitor_project_ui():
     # If neither file provided
     if not reference_file and not actual_file:
         st.info("Upload files to start monitoring. For schedule generation use the Generate Schedule tab.")
-        )
+        
