@@ -214,7 +214,7 @@ class EquipmentResourceManager:
             target_demand = self._calculate_accelerated_demand(min_required, task.discipline)
 
             # Phase 2: Analyze equipment availability
-            equipment_analysis = self._analyze_equipment_availability(eq_choices, start, end, target_demand)
+            equipment_analysis = self._analyze_equipment_availability(eq_choices, start, end, target_demand, task)
             if not equipment_analysis:
                 self._log_allocation_failure(task, eq_choices, min_required, equipment_analysis)
                 return None
@@ -258,7 +258,7 @@ class EquipmentResourceManager:
         accelerated = int(math.ceil(min_required * factor))
         return min(accelerated, int(min_required * max_multiplier))
 
-    def _analyze_equipment_availability(self, eq_choices, start, end, target_demand):
+    def _analyze_equipment_availability(self, eq_choices, start, end, target_demand, task):
         """Analyze equipment availability and constraints for alternatives."""
         equipment_analysis = {}
         total_available = 0
@@ -271,7 +271,19 @@ class EquipmentResourceManager:
             total_count = int(eq_res.count)
             used_units = self._used_units(eq_name, start, end)
             available_units = max(0, total_count - used_units)
-            max_per_task = getattr(eq_res, "max_equipment", total_count)
+            
+            # FIXED: Handle max_equipment as dictionary for task-specific limits
+            max_equipment_value = getattr(eq_res, "max_equipment", total_count)
+            if isinstance(max_equipment_value, dict):
+                # Get task-specific limit
+                task_id = getattr(task, 'id', None)
+                if task_id and task_id in max_equipment_value:
+                    max_per_task = max_equipment_value[task_id]
+                else:
+                    max_per_task = total_count  # Fallback
+            else:
+                max_per_task = max_equipment_value
+            
             allocatable_units = min(available_units, max_per_task)
 
             equipment_analysis[eq_name] = {
@@ -367,11 +379,11 @@ class EquipmentResourceManager:
         if equipment_analysis:
             available_str = ", ".join([f"{eq}:{info['allocatable_units']}" 
                                        for eq, info in equipment_analysis.items()])
-            logger.warning(f"Equipment allocation failed - Task: {task.id}, "
-                          f"Required: {min_required}, Available: {available_str}")
+            print(f"Equipment allocation failed - Task: {task.id}, "
+                  f"Required: {min_required}, Available: {available_str}")
         else:
-            logger.warning(f"Equipment allocation failed - Task: {task.id}, "
-                          f"No valid equipment in: {eq_choices}")
+            print(f"Equipment allocation failed - Task: {task.id}, "
+                  f"No valid equipment in: {eq_choices}")
 # -----------------------------
 # Calendar (workdays) - half-open end
 # -----------------------------
@@ -436,19 +448,29 @@ class DurationCalculator:
             print(f"✅ Task {task.base_id}, floor {task.floor} quantity: {qty}")
         task.quantity=q
         return q
+
+    def _get_productivity_rate(self, resource, task_id, default=1.0):
+        """Get task-specific productivity rate from resource."""
+        if hasattr(resource, 'productivity_rates'):
+            if isinstance(resource.productivity_rates, dict):
+                return resource.productivity_rates.get(task_id, default)
+            else:
+                return resource.productivity_rates
+        return default
+
     def calculate_duration(self, task: Task, allocated_crews: int = None, allocated_equipments: dict = None) -> int:
         """
-    Calculate workdays using the actual allocated resources:
-      - allocated_crews: integer (if None -> use task.crews_needed)
-      - allocated_equipment: dict {eq_name: units} (if None -> use task.equipment_needed)
-    Return integer days (min 1).
-      -if duration is fixed returns it
+        Calculate workdays using the actual allocated resources:
+          - allocated_crews: integer (if None -> use task.crews_needed)
+          - allocated_equipment: dict {eq_name: units} (if None -> use task.equipment_needed)
+        Return integer days (min 1).
+          -if duration is fixed returns it
         """
         if getattr(task, "base_duration", None) is not None:
             return int(math.ceil(task.base_duration))
         qty = self._get_quantity(task)
 
-    # normalize allocated items
+        # normalize allocated items
         crews = allocated_crews if allocated_crews is not None else max(1, task.min_crews_needed)
         eq_alloc = allocated_equipments if allocated_equipments is not None else (task.min_equipment_needed or {})
 
@@ -456,7 +478,8 @@ class DurationCalculator:
             if task.resource_type not in self.workers:
                 raise ValueError(f"Worker resource '{task.resource_type}' not found for task {task.id}")
             res = self.workers[task.resource_type]
-            base_prod = res.productivity_rates.get(task.base_id, 1.0)
+            # FIXED: Use task-specific productivity rate
+            base_prod = self._get_productivity_rate(res, task.base_id, 1.0)
             # worker daily production = base_prod * crews * efficiency
             daily_prod = base_prod * crews * res.efficiency
             if daily_prod <= 0:
@@ -469,7 +492,7 @@ class DurationCalculator:
             normalized_eq_alloc = {}
             for eq_key, units in eq_alloc.items():
                 if isinstance(eq_key, (tuple, list)):
-            # pick the first matching equipment in self.equipment
+                    # pick the first matching equipment in self.equipment
                     chosen = next((e for e in eq_key if e in self.equipment), None)
                     if chosen is None:
                         raise ValueError(f"Equipment {eq_key} not found for task {task.id}")
@@ -479,64 +502,62 @@ class DurationCalculator:
 
             eq_alloc = normalized_eq_alloc
 
-
             daily_prod_total = 0.0
             for eq_name, units in eq_alloc.items():
                 if eq_name not in self.equipment:
                     raise ValueError(f"Equipment '{eq_name}' not found for task {task.id}")
                 res = self.equipment[eq_name]
-                base_prod = res.productivity_rates.get(task.base_id, 1.0)
+                # FIXED: Use task-specific productivity rate
+                base_prod = self._get_productivity_rate(res, task.base_id, 1.0)
                 daily_prod_total += base_prod * units * res.efficiency
             if daily_prod_total <= 0:
                 raise ValueError(f"Non-positive total equipment productivity for {task.id}")
             duration = qty / daily_prod_total
 
         elif task.task_type == "hybrid":
-        # worker-limited
+            # worker-limited
             if task.resource_type not in self.workers:
                 raise ValueError(f"Worker resource '{task.resource_type}' not found for task {task.id}")
             worker_res = self.workers[task.resource_type]
-            base_prod_worker = worker_res.productivity_rates.get(task.base_id, 1.0)
+            # FIXED: Use task-specific productivity rate
+            base_prod_worker = self._get_productivity_rate(worker_res, task.base_id, 1.0)
             daily_worker_prod = base_prod_worker * crews * worker_res.efficiency
             if daily_worker_prod <= 0:
                 raise ValueError(f"Non-positive worker productivity for {task.id}")
 
-        # equipment-limited: compute effective daily production per equipment bottleneck:
-          #   durations_equip = []
-          #   if eq_alloc:
-          #       for eq_name, units in eq_alloc.items():
-          #           if eq_name not in self.equipment:
-          #               raise ValueError(f"Equipment '{eq_name}' not found for task {task.id}")
-          #           eq_res = self.equipment[eq_name]
-          #           base_prod_eq = eq_res.productivity_rates.get(task.base_id, 1.0)
-          #           daily_eq_prod = base_prod_eq * units * eq_res.efficiency
-          #           if daily_eq_prod <= 0:
-          #               durations_equip.append(float("inf"))
-           #          else:
-           #              durations_equip.append(qty / daily_eq_prod)
-           #      duration_equip = max(durations_equip) if durations_equip else float("inf")
-           
-           
-           
-           #  else:
+            # equipment-limited: compute effective daily production per equipment bottleneck:
+            # durations_equip = []
+            # if eq_alloc:
+            #     for eq_name, units in eq_alloc.items():
+            #         if eq_name not in self.equipment:
+            #             raise ValueError(f"Equipment '{eq_name}' not found for task {task.id}")
+            #         eq_res = self.equipment[eq_name]
+            #         base_prod_eq = self._get_productivity_rate(eq_res, task.base_id, 1.0)
+            #         daily_eq_prod = base_prod_eq * units * eq_res.efficiency
+            #         if daily_eq_prod <= 0:
+            #             durations_equip.append(float("inf"))
+            #         else:
+            #             durations_equip.append(qty / daily_eq_prod)
+            #     duration_equip = max(durations_equip) if durations_equip else float("inf")
+            # else:
             #     duration_equip = float("inf")
 
-        # worker duration
+            # worker duration
             duration_worker = qty / daily_worker_prod
 
-        # realistic is the max of worker-limited and equipment-limited
-           #  duration = max(duration_worker, duration_equip)
+            # realistic is the max of worker-limited and equipment-limited
+            # duration = max(duration_worker, duration_equip)
             duration = duration_worker
         else:
             raise ValueError(f"Unknown task_type: {task.task_type}")
 
         duration *= task.risk_factor
         shift_factor = SHIFT_CONFIG.get(task.discipline, SHIFT_CONFIG.get("default", 1.0))
-        duration = duration /shift_factor
+        duration = duration / shift_factor
         if task.floor > 1:
             duration *= 0.98 ** (task.floor - 1)
 
-    # validate & clamp
+        # validate & clamp
         if not isinstance(duration, (int, float)) or math.isnan(duration) or math.isinf(duration):
             raise ValueError(f"Invalid duration for task {task.id}: {duration!r}")
 
@@ -548,7 +569,6 @@ class DurationCalculator:
         duration_days = int(math.ceil(duration))
         print(f"for {task.id} duration is {duration_days}")
         return max(1, duration_days)
-
 
 # -----------------------------
 # CPM Analyzer (day counts)
@@ -741,7 +761,7 @@ class AdvancedScheduler:
             self.calendar.add_calendar_days(schedule[p][1], self.task_map[p].delay)
             for p in task.predecessors
             if p in schedule and schedule[p][1] is not None
-          ]
+        ]
         if not pred_end_dates:
             print(f"[DEBUG earliest_start] Task {task.id}: No scheduled predecessors found at this moment")
             print(f"  Predecessors: {task.predecessors}")
@@ -750,6 +770,44 @@ class AdvancedScheduler:
             return max(pred_end_dates)
         else:
             return self.calendar.current_date
+
+    def _allocate_resources_for_window(self, task, start_date, duration_days):
+        """Helper method to allocate resources for a specific time window."""
+        end_date = self.calendar.add_workdays(start_date, duration_days)
+        
+        # Release any previous allocations for this task
+        self.worker_manager.release(task.id)
+        self.equipment_manager.release(task.id)
+        
+        # Compute allocations
+        possible_crews = None
+        if task.task_type in ("worker", "hybrid"):
+            possible_crews = self.worker_manager.compute_allocation(task, start_date, end_date)
+
+        possible_equip = {}
+        if task.task_type in ("equipment", "hybrid") and (task.min_equipment_needed or {}):
+            possible_equip = self.equipment_manager.compute_allocation(task, start_date, end_date) or {}
+
+        return possible_crews, possible_equip, end_date
+
+    def _check_feasibility(self, task, possible_crews, possible_equip):
+        """Check if allocated resources meet minimum requirements."""
+        min_crews = getattr(task, "min_crews_needed", max(1, task.min_crews_needed))
+        
+        feasible_workers = True
+        if task.task_type in ("worker", "hybrid"):
+            feasible_workers = (possible_crews is not None and possible_crews >= min_crews)
+
+        feasible_equip = True
+        if task.task_type in ("equipment", "hybrid") and (task.min_equipment_needed or {}):
+            for eq_key, min_req in task.min_equipment_needed.items():
+                eq_choices = eq_key if isinstance(eq_key, (tuple, list)) else (eq_key,)
+                allocated_total = sum(possible_equip.get(eq, 0) for eq in eq_choices)
+                if allocated_total < min_req:
+                    feasible_equip = False
+                    break
+
+        return feasible_workers, feasible_equip
 
     def generate(self):
         schedule = {}
@@ -767,9 +825,7 @@ class AdvancedScheduler:
                 if p not in self.task_map:
                     raise ValueError(f"Task {tid} references predecessor {p} which does not exist.")
         
-         # -------------------------
         # Precompute durations (fail early)
-        # -------------------------
         for tid, t in self.task_map.items():
             try:
                 # compute a nominal duration using nominal resources (no allocations)
@@ -778,11 +834,9 @@ class AdvancedScheduler:
                     raise ValueError(f"Computed invalid duration {d!r}")
             except Exception as e:
                 print(f"[DUR ERROR] Task {tid}: cannot compute nominal duration before scheduling => {e!r}")
-                # Re-raise so you see the task and stop early — avoids infinite loops later
                 raise
             # store precomputed nominal duration on task so scheduler can use it as a fallback
             t.nominal_duration = d
-
 
         max_attempts = len(self.task_map) * 10 + 1000
         attempts = 0
@@ -812,121 +866,72 @@ class AdvancedScheduler:
             if not isinstance(duration_days, int) or duration_days < 0:
                 raise ValueError(f"Invalid duration for {task.id}: {duration_days}")
 
-            end_date = self.calendar.add_workdays(start_date, duration_days)
-
-            forward_attempts = 0
-            max_forward = 3000
-            allocated_crews = None
-            allocated_equipments = None
-            self.worker_manager.release(task.id)
-            self.equipment_manager.release(task.id)
-            if duration_days==0:
-                start_date = self._earliest_start_from_preds(task, schedule)
-                end_date = start_date
-                allocated_crews = 0
-                allocated_equipments = {}
-                schedule[task.id] = (start_date, end_date)
+            # Handle instantaneous tasks
+            if duration_days == 0:
+                schedule[task.id] = (start_date, start_date)
                 unscheduled.remove(task.id)
-                task.allocated_crews = allocated_crews
-                task.allocated_equipments = allocated_equipments
-    # update successors
+                task.allocated_crews = 0
+                task.allocated_equipments = {}
+                
+                # Update successors
                 for succ in [s for s in self.task_map if task.id in self.task_map[s].predecessors]:
                     pred_count[succ] -= 1
                     if pred_count[succ] == 0:
                         ready.append(succ)
-                        continue # instantaneous task
-            else:
-                
-                while True:
-                # === 1. Compute allocations on this window ===
-                    possible_crews = None
-                    if task.task_type in ("worker", "hybrid"):
-                        possible_crews = self.worker_manager.compute_allocation(task, start_date, end_date)
+                continue
 
-                    possible_equip = {}
-                    if task.task_type in ("equipment", "hybrid") and (task.min_equipment_needed or {}):
-                       possible_equip = self.equipment_manager.compute_allocation(task, start_date, end_date) or {}
-  
-                  # === 2. Check feasibility vs min requirements ===
-                    min_crews = getattr(task, "min_crews_needed", max(1, task.min_crews_needed))
-                    feasible_workers = (possible_crews is not None and possible_crews >= min_crews) if task.task_type in ("worker", "hybrid") else True
-                    feasible_equip = True
-                    if task.task_type in ("equipment", "hybrid") and (task.min_equipment_needed or {}):
-                        for eq_key, min_req in task.min_equipment_needed.items():
-                            eq_choices = eq_key if isinstance(eq_key, (tuple, list)) else (eq_key,)
-                            allocated_total = sum(possible_equip.get(eq, 0) for eq in eq_choices)
-                            if allocated_total < min_req:
-                                feasible_equip = False
-                                break
+            # Resource allocation loop
+            allocated_crews = None
+            allocated_equipments = None
+            forward_attempts = 0
+            max_forward = 3000
 
-                     # === 3. If feasible, calculate duration using ACTUAL allocation ===
-                    if ((task.task_type == "worker" and feasible_workers) or
-                        (task.task_type == "equipment" and feasible_equip) or
-                        (task.task_type == "hybrid" and feasible_workers and feasible_equip)):
+            while forward_attempts < max_forward:
+                # Get resource allocations for current window
+                possible_crews, possible_equip, end_date = self._allocate_resources_for_window(
+                    task, start_date, duration_days
+                )
 
-                        dur_try = self.duration_calc.calculate_duration(
-                            task,
-                           allocated_crews=possible_crews if possible_crews else None,
-                           allocated_equipments=possible_equip if possible_equip else None
-                         )
-                        end_try = self.calendar.add_workdays(start_date, dur_try)
+                # Check feasibility
+                feasible_workers, feasible_equip = self._check_feasibility(task, possible_crews, possible_equip)
 
-                        # === 4. Re-check allocations on the final window ===
-                        final_crews = None
-                        if task.task_type in ("worker", "hybrid"):
-                            final_crews = self.worker_manager.compute_allocation(task, start_date, end_try)
-
-                        final_equip = {}
-                        if task.task_type in ("equipment", "hybrid") and (task.min_equipment_needed or {}):
-                            final_equip = self.equipment_manager.compute_allocation(task, start_date, end_try) or {}
-
-                        feasible_final_workers = True
-                        if task.task_type in ("worker", "hybrid"):
-                            feasible_final_workers = (final_crews is not None and final_crews >= min_crews)
-
-                        feasible_final_equip = True
-                        if task.task_type in ("equipment", "hybrid"):
-                            for eq_key, min_req in task.min_equipment_needed.items():
-                                eq_choices = eq_key if isinstance(eq_key, (tuple, list)) else (eq_key,)
-                                allocated_total = sum(final_equip.get(eq, 0) for eq in eq_choices)
-                                if allocated_total < min_req:
-                                    feasible_final_equip = False
-                                    break
-                        if feasible_final_workers and feasible_final_equip:
-                             # === 5. Commit allocation ===
-                            allocated_crews = final_crews if final_crews else None
-                            allocated_equipments = final_equip if final_equip else {}
-
-                            if allocated_crews:
-                                self.worker_manager.allocate(task, start_date, end_try,allocated_crews)
-                            if allocated_equipments:
-                                self.equipment_manager.allocate(task, start_date, end_try,allocated_equipments)
-
-                            duration_days = dur_try
-                            end_date = end_try
-                            break  # scheduled successfully
-
-                     # === 6. If not feasible, shift window ===
-                    if not feasible_workers and task.task_type in ("worker", "hybrid"):
-                        print(f"   ❌ {task.id}: insufficient crews at {start_date}")
-                    if not feasible_equip and task.task_type in ("equipment", "hybrid"):
-                        print(f"   ❌ {task.id}: insufficient equipment at {start_date}")
+                # If feasible, calculate duration with actual allocations
+                if feasible_workers and feasible_equip:
+                    actual_duration = self.duration_calc.calculate_duration(
+                        task,
+                        allocated_crews=possible_crews,
+                        allocated_equipments=possible_equip
+                    )
                     
-                    start_date = self.calendar.add_workdays(start_date, 1)
-                    end_date = self.calendar.add_workdays(start_date, duration_days)
-                    forward_attempts += 1
-                    if forward_attempts > max_forward:
-                        print(f"[ATTEMPT {forward_attempts}] task={task.id} start={start_date} end={end_date}")
-                        print(f"  possible_crews={possible_crews} feasible_workers={feasible_workers}")
-                        print(f"  possible_equip={possible_equip} feasible_equip={feasible_equip}")
-                        print(f"[DEBUG LOOP] Task {task.id} start={start_date}")
-                        print(f"  dur_try={dur_try}")
-                        print(f"  possible_crews={possible_crews}")
-                        print(f"  final_crews={final_crews}")
-                        print(f"  feasible_final_workers={feasible_final_workers}")
-                        print(f"  feasible_final_equip={feasible_final_equip}")
-                        raise RuntimeError(f"Could not find resource window for task {task.id} after {max_forward} attempts.")
-            # === 7. Final dependency enforcement ===
+                    # Re-check allocations with actual duration
+                    final_crews, final_equip, final_end = self._allocate_resources_for_window(
+                        task, start_date, actual_duration
+                    )
+                    
+                    final_feasible_workers, final_feasible_equip = self._check_feasibility(task, final_crews, final_equip)
+                    
+                    if final_feasible_workers and final_feasible_equip:
+                        # Commit allocations
+                        allocated_crews = final_crews
+                        allocated_equipments = final_equip
+
+                        if allocated_crews:
+                            self.worker_manager.allocate(task, start_date, final_end, allocated_crews)
+                        if allocated_equipments:
+                            self.equipment_manager.allocate(task, start_date, final_end, allocated_equipments)
+
+                        duration_days = actual_duration
+                        end_date = final_end
+                        break
+
+                # Shift window forward
+                start_date = self.calendar.add_workdays(start_date, 1)
+                forward_attempts += 1
+
+            if forward_attempts >= max_forward:
+                raise RuntimeError(f"Could not find resource window for task {task.id} after {max_forward} attempts.")
+
+            # Final dependency enforcement
             for p in task.predecessors:
                 pred_end = schedule[p][1]
                 if start_date < pred_end:
@@ -934,12 +939,12 @@ class AdvancedScheduler:
                         f"Dependency violation: Task {task.id} starts {start_date} before predecessor {p} ends {pred_end}"
                     )
 
-            # === 8. Record schedule ===
-            schedule[task.id] = (start_date, end_date,)
-            if task.id in unscheduled:
-                unscheduled.remove(task.id)
-            task.allocated_crews=allocated_crews
-            task.allocated_equipments=allocated_equipments
+            # Record schedule
+            schedule[task.id] = (start_date, end_date)
+            unscheduled.remove(task.id)
+            task.allocated_crews = allocated_crews
+            task.allocated_equipments = allocated_equipments
+            
             # Update successors
             for succ in [s for s in self.task_map if task.id in self.task_map[s].predecessors]:
                 pred_count[succ] -= 1
@@ -947,7 +952,6 @@ class AdvancedScheduler:
                     ready.append(succ)
 
         return schedule
-
 
 # -----------------------------
 # Reporter (exports Excel)
