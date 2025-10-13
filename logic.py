@@ -8,18 +8,15 @@ from typing import List, Dict, Optional
 import bisect
 import math
 import warnings
-from typing import Dict, List, Optional
 from datetime import datetime
-from collections import defaultdict, deque
 import logging
 import loguru
 import streamlit as st
-import pandas as pd
 import plotly.express as px
 from utils import save_excel_file
 from defaults import workers, equipment, BASE_TASKS, cross_floor_links, acceleration, SHIFT_CONFIG
-
-
+from helpers import parse_quantity_excel,parse_worker_excel,parse_equipment_excel
+from models import Task,BaseTask, WorkerResource, EquipmentResource
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(
@@ -30,83 +27,6 @@ ground_disciplines=["Préliminaire","Terrassement","Fondations"]
 # -----------------------------
 # Data classes: workers & equip
 # -----------------------------
-@dataclass
-class WorkerResource:
-    name: str
-    count: int
-    hourly_rate: float
-    productivity_rates: dict   # {base_task_id: units_per_workday}
-    skills: List[str]
-    max_crews: Optional[int] = None
-    overtime_factor: float = 1.5
-    efficiency: float = 1.0
-
-
-@dataclass
-class EquipmentResource:
-    name: str
-    count: int
-    hourly_rate: float
-    productivity_rates: dict   # {base_task_id: units_per_workday}
-    max_equipment: Optional[int] = None
-    type: str = "general"
-    efficiency: float = 1.0
-
-
-@dataclass
-class BaseTask:
-    id: str
-    name: str
-    discipline: str
-    resource_type: str                   # logical resource name (worker pool) for worker/hybrid tasks      
-    predecessors: List[str] = field(default_factory=list)
-    task_type: str = "worker"# worker | equipment | hybrid
-    min_crews_needed: Optional[int] = None
-    min_equipment_needed: Optional[Dict[str, int]] = None
-    base_duration: int = None
-    risk_factor: float = 1.0
-    repeat_on_floor: bool=True
-    included: bool = True
-    delay: int = 0
-
-@dataclass
-class Task:
-    id: str
-    base_id: str
-    name: str
-    base_duration: int
-    predecessors: list
-    discipline: str
-    resource_type: str
-    min_crews_needed: Optional[int] = None
-    min_equipment_needed: Optional[Dict[str, int]] = None
-    allocated_crews: int=None
-    allocated_equipments:Optional[Dict[str, int]] = None
-    task_type: str = "worker"
-    quantity: float = 250.0
-    risk_factor: float = 1.0
-    weather_sensitive: bool = False
-    floor: int = 0
-    zone: str = ""
-    constraints: list = None
-    included: bool = True
-    earliest_start: Optional[datetime] = None
-    earliest_finish: Optional[datetime] = None
-    latest_start: Optional[datetime] = None
-    latest_finish: Optional[datetime] = None
-    delay: int = 0
-
-
-    def __post_init__(self):
-        if self.constraints is None:
-            self.constraints = []
-        # default min to the requested crews if not provided
-        if self.min_crews_needed is None:
-            # ensure at least 1 unless crews_needed is 0
-            self.min_crews_needed = max(1, int(self.min_crews_needed)) if getattr(self, "min_crews_needed", 0) else 0
-        # default min equipment if not provided: use equipment_needed itself
-        if self.min_equipment_needed is None:
-            self.min_equipment_needed = {}
 import pandas as pd
 from io import BytesIO
 
@@ -1352,10 +1272,6 @@ def run_schedule(zone_floors, quantity_matrix, start_date, workers_dict=None, eq
 
 # ---------------- Final generate_schedule_ui ----------------
 def generate_schedule_ui():
-    import streamlit as st
-    import os
-    import pandas as pd
-    from helpers import parse_quantity_excel,parse_worker_excel,parse_equipment_excel
     st.header("📅 Generate Project Schedule")
     st.markdown("""
         Upload or define your project inputs:
