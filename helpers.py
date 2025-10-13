@@ -113,21 +113,41 @@ def parse_equipment_excel(df: pd.DataFrame) -> Dict[str, EquipmentResource]:
     return equipment_dict if equipment_dict else default_equipment
 
 def parse_quantity_excel(df: pd.DataFrame) -> Dict[str, float]:
+def parse_quantity_excel(df: pd.DataFrame) -> Dict:
     """
     Parse a quantity Excel uploaded by the user.
     Expected columns: TaskID, Zone, Floor, Quantity
-    Returns a dictionary keyed by TaskID+Zone+Floor
+    Returns a nested dictionary: {task_id: {floor: {zone: quantity}}}
     """
-    quantity_dict = {}
+    quantity_matrix = {}
     for _, row in df.iterrows():
-        task_id = str(row.get("TaskID", "")).strip()
-        zone = str(row.get("Zone", "")).strip()
-        floor = int(row.get("Floor", 0))
-        quantity = float(row.get("Quantity", 0) or 0)
-        key = f"{task_id}_{zone}_{floor}"
-        quantity_dict[key] = quantity
-    return quantity_dict
-
+        try:
+            task_id = str(row.get("TaskID", "")).strip()
+            if not task_id:
+                continue
+            zone = str(row.get("Zone", "")).strip()
+            if not zone:
+                continue
+            # Safely convert floor to integer
+            try:
+                floor = int(float(row.get("Floor", 0)))
+            except (ValueError, TypeError):
+                continue     
+            # Safely convert quantity to float
+            try:
+                quantity = float(row.get("Quantity", 0) or 0)
+            except (ValueError, TypeError):
+                quantity = 0.0 
+            # Build the nested dictionary structure
+            if task_id not in quantity_matrix:
+                quantity_matrix[task_id] = {}
+            if floor not in quantity_matrix[task_id]:
+                quantity_matrix[task_id][floor] = {}
+            quantity_matrix[task_id][floor][zone] = quantity
+        except Exception as e:
+            print(f"Warning: Skipping row due to error: {e}")
+            continue
+    return quantity_matrix
 
 # ------------------------- Template Generation -------------------------
 
