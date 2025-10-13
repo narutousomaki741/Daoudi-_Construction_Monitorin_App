@@ -1203,7 +1203,12 @@ def generate_schedule_ui():
         if not quantity_file:
             st.warning("Please upload the Quantity Matrix Excel.")
             return
-
+        if not worker_file:
+            st.warning("Please upload the Worker Template Excel.")
+            return
+        if not equipment_file:
+            st.warning("Please upload the equipment Template Excel.")
+            return
         # Parse uploaded files
         try:
             df_qty = pd.read_excel(quantity_file)
@@ -1213,7 +1218,6 @@ def generate_schedule_ui():
             return
 
         # Worker data
-        workers_used = default_workers
         if worker_file:
             try:
                 df_worker = pd.read_excel(worker_file)
@@ -1223,7 +1227,6 @@ def generate_schedule_ui():
                 return
 
         # Equipment data
-        equipment_used = default_equipment
         if equipment_file:
             try:
                 df_equip = pd.read_excel(equipment_file)
