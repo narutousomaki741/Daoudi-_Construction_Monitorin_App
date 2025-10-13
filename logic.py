@@ -428,6 +428,7 @@ class AdvancedCalendar:
 # -----------------------------
 # Duration Calculator (uses separate pools)
 # -----------------------------
+
 class DurationCalculator:
     def __init__(self, workers: Dict[str, WorkerResource], equipment: Dict[str, EquipmentResource], quantity_matrix: Dict):
         self.workers = workers
@@ -458,6 +459,20 @@ class DurationCalculator:
             else:
                 return resource.productivity_rates
         return default
+
+    def _get_first_equipment_type(self, min_equipment_needed):
+        """Get the first equipment type from min_equipment_needed dictionary."""
+        if not min_equipment_needed:
+            return None
+        
+        # Get the first key-value pair from the dictionary
+        first_key = next(iter(min_equipment_needed))
+        
+        # If it's a tuple/list (alternative equipment), take the first one
+        if isinstance(first_key, (tuple, list)):
+            return first_key[0] if first_key else None
+        else:
+            return first_key
 
     def calculate_duration(self, task: Task, allocated_crews: int = None, allocated_equipments: dict = None) -> int:
         """
@@ -490,29 +505,31 @@ class DurationCalculator:
         elif task.task_type == "equipment":
             if not eq_alloc:
                 raise ValueError(f"Equipment task {task.id} has no equipment specified")
-            normalized_eq_alloc = {}
-            for eq_key, units in eq_alloc.items():
-                if isinstance(eq_key, (tuple, list)):
-                    # pick the first matching equipment in self.equipment
-                    chosen = next((e for e in eq_key if e in self.equipment), None)
-                    if chosen is None:
-                        raise ValueError(f"Equipment {eq_key} not found for task {task.id}")
-                    normalized_eq_alloc[chosen] = normalized_eq_alloc.get(chosen, 0) + units
-                else:
-                    normalized_eq_alloc[eq_key] = normalized_eq_alloc.get(eq_key, 0) + units
-
-            eq_alloc = normalized_eq_alloc
-
-            daily_prod_total = 0.0
-            for eq_name, units in eq_alloc.items():
-                if eq_name not in self.equipment:
-                    raise ValueError(f"Equipment '{eq_name}' not found for task {task.id}")
-                res = self.equipment[eq_name]
-                # FIXED: Use task-specific productivity rate
-                base_prod = self._get_productivity_rate(res, task.base_id, 1.0)
-                daily_prod_total += base_prod * units * res.efficiency
+            
+            # FIXED: Use only the first equipment type for productivity calculation
+            first_eq_type = self._get_first_equipment_type(task.min_equipment_needed)
+            if not first_eq_type:
+                raise ValueError(f"No equipment types found in min_equipment_needed for task {task.id}")
+            
+            # Get total units allocated for the first equipment type (including alternatives)
+            total_units = 0
+            if isinstance(first_eq_type, (tuple, list)):
+                # If first equipment type is a tuple of alternatives, sum all allocated alternatives
+                for eq_name in first_eq_type:
+                    total_units += eq_alloc.get(eq_name, 0)
+            else:
+                # Single equipment type
+                total_units = eq_alloc.get(first_eq_type, 0)
+            
+            if first_eq_type not in self.equipment:
+                raise ValueError(f"First equipment type '{first_eq_type}' not found for task {task.id}")
+            
+            res = self.equipment[first_eq_type]
+            base_prod = self._get_productivity_rate(res, task.base_id, 1.0)
+            daily_prod_total = base_prod * total_units * res.efficiency
+            
             if daily_prod_total <= 0:
-                raise ValueError(f"Non-positive total equipment productivity for {task.id}")
+                raise ValueError(f"Non-positive equipment productivity for {task.id}")
             duration = qty / daily_prod_total
 
         elif task.task_type == "hybrid":
@@ -526,29 +543,31 @@ class DurationCalculator:
             if daily_worker_prod <= 0:
                 raise ValueError(f"Non-positive worker productivity for {task.id}")
 
-            # equipment-limited: compute effective daily production per equipment bottleneck:
-            # durations_equip = []
-            # if eq_alloc:
-            #     for eq_name, units in eq_alloc.items():
-            #         if eq_name not in self.equipment:
-            #             raise ValueError(f"Equipment '{eq_name}' not found for task {task.id}")
-            #         eq_res = self.equipment[eq_name]
-            #         base_prod_eq = self._get_productivity_rate(eq_res, task.base_id, 1.0)
-            #         daily_eq_prod = base_prod_eq * units * eq_res.efficiency
-            #         if daily_eq_prod <= 0:
-            #             durations_equip.append(float("inf"))
-            #         else:
-            #             durations_equip.append(qty / daily_eq_prod)
-            #     duration_equip = max(durations_equip) if durations_equip else float("inf")
-            # else:
-            #     duration_equip = float("inf")
+            # FIXED: Equipment-limited using only first equipment type
+            daily_equip_prod = 0
+            if eq_alloc:
+                first_eq_type = self._get_first_equipment_type(task.min_equipment_needed)
+                if first_eq_type and first_eq_type in self.equipment:
+                    total_units = 0
+                    if isinstance(first_eq_type, (tuple, list)):
+                        for eq_name in first_eq_type:
+                            total_units += eq_alloc.get(eq_name, 0)
+                    else:
+                        total_units = eq_alloc.get(first_eq_type, 0)
+                    
+                    eq_res = self.equipment[first_eq_type]
+                    base_prod_eq = self._get_productivity_rate(eq_res, task.base_id, 1.0)
+                    daily_equip_prod = base_prod_eq * total_units * eq_res.efficiency
 
-            # worker duration
-            duration_worker = qty / daily_worker_prod
+            # Worker duration
+            duration_worker = qty / daily_worker_prod if daily_worker_prod > 0 else float('inf')
+            
+            # Equipment duration (if equipment is used)
+            duration_equip = qty / daily_equip_prod if daily_equip_prod > 0 else float('inf')
+            
+            # Use the longer duration (bottleneck)
+            duration = max(duration_worker, duration_equip)
 
-            # realistic is the max of worker-limited and equipment-limited
-            # duration = max(duration_worker, duration_equip)
-            duration = duration_worker
         else:
             raise ValueError(f"Unknown task_type: {task.task_type}")
 
@@ -570,7 +589,6 @@ class DurationCalculator:
         duration_days = int(math.ceil(duration))
         print(f"for {task.id} duration is {duration_days}")
         return max(1, duration_days)
-
 # -----------------------------
 # CPM Analyzer (day counts)
 # -----------------------------
