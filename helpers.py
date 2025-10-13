@@ -46,6 +46,53 @@ def parse_worker_excel(df: pd.DataFrame) -> Dict[str, WorkerResource]:
 
     return workers_dict if workers_dict else default_workers
 
+def parse_worker_excel(df: pd.DataFrame) -> Dict[str, WorkerResource]:
+    """
+    Parse an uploaded worker Excel file into WorkerResource objects.
+    Expected columns: WorkerType, Count, HourlyRate, ProductivityRate, TaskName, MaxCrews
+    """
+    workers_dict = {}
+
+    for _, row in df.iterrows():
+        worker_type = str(row.get("WorkerType", "")).strip()
+        if not worker_type:
+            continue
+
+        count = int(row.get("Count", 0))
+        hourly_rate = float(row.get("HourlyRate", 0))
+
+        # Parse productivity: map TaskName back to TaskID
+        task_name = str(row.get("TaskName", "")).strip()
+        prod_rate = float(row.get("ProductivityRate", 0))
+        task_id = next((tid for tid, tname in TASK_ID_NAME.items() if tname == task_name), task_name)
+        
+        # Parse max_crews (NEW)
+        max_crews = int(row.get("MaxCrews", 1))
+        
+        # Initialize or update WorkerResource
+        if worker_type not in workers_dict:
+            workers_dict[worker_type] = WorkerResource(
+                name=worker_type,
+                count=count,
+                hourly_rate=hourly_rate,
+                productivity_rates={task_id: prod_rate},
+                skills=[worker_type],
+                max_crews={task_id: max_crews}  # CHANGED: Now a dictionary
+            )
+        else:
+            # Update productivity rates
+            workers_dict[worker_type].productivity_rates[task_id] = prod_rate
+            # Update max_crews dictionary (NEW)
+            if hasattr(workers_dict[worker_type], 'max_crews'):
+                if isinstance(workers_dict[worker_type].max_crews, dict):
+                    workers_dict[worker_type].max_crews[task_id] = max_crews
+                else:
+                    # Convert from single value to dictionary
+                    workers_dict[worker_type].max_crews = {task_id: max_crews}
+            else:
+                workers_dict[worker_type].max_crews = {task_id: max_crews}
+
+    return workers_dict if workers_dict else default_workers
 
 def parse_equipment_excel(df: pd.DataFrame) -> Dict[str, EquipmentResource]:
     """
@@ -126,7 +173,6 @@ def generate_quantity_template(base_tasks=BASE_TASKS, zones_floors=None):
     df.to_excel(file_path, index=False)
     return file_path
 
-
 def generate_worker_template(workers_dict=default_workers):
     """
     Generates an Excel template for workers with task names instead of IDs.
@@ -134,19 +180,27 @@ def generate_worker_template(workers_dict=default_workers):
     records = []
     for worker_name, worker in workers_dict.items():
         for task_id, prod_rate in worker.productivity_rates.items():
+            # Get max_crews for this specific task
+            max_crews = 1  # default
+            if hasattr(worker, 'max_crews'):
+                if isinstance(worker.max_crews, dict):
+                    max_crews = worker.max_crews.get(task_id, 1)
+                else:
+                    max_crews = worker.max_crews if worker.max_crews else 20
+            
             records.append({
                 "TaskName": TASK_ID_NAME.get(task_id, task_id),  # lookup task name
                 "WorkerType": worker.name,
                 "Count": worker.count,
                 "HourlyRate": worker.hourly_rate,
-                "ProductivityRate": prod_rate
+                "ProductivityRate": prod_rate,
+                "MaxCrews": max_crews  # NEW: Add max_crews column
             })
     df = pd.DataFrame(records)
     temp_dir = tempfile.mkdtemp(prefix="worker_template_")
     file_path = os.path.join(temp_dir, "worker_template.xlsx")
     df.to_excel(file_path, index=False)
     return file_path
-
 
 def generate_equipment_template(equipment_dict=default_equipment):
     """
