@@ -1155,7 +1155,7 @@ def run_schedule(zone_floors, quantity_matrix, start_date, workers_dict=None, eq
 
 
 def generate_schedule_ui():
-    from reporting import generate_interactive_gantt
+    
     st.header("📅 Generate Project Schedule")
     st.markdown("""
         Upload or define your project inputs:
