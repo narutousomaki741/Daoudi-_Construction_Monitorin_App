@@ -1215,9 +1215,6 @@ def generate_schedule_ui():
     
     if st.button("Generate Default Templates"):
         try:
-            # Use default workers and equipment if available, otherwise create defaults
-            default_workers_dict = getattr(workers, 'workers', default_workers) if 'workers' in locals() else default_workers
-            default_equipment_dict = getattr(equipment, 'equipment', default_equipment) if 'equipment' in locals() else default_equipment
             
             with st.spinner("Generating templates..."):
                 qty_file = generate_quantity_template(BASE_TASKS, zones_floors)
@@ -1235,7 +1232,6 @@ def generate_schedule_ui():
                         file_name="quantity_template.xlsx",
                         help="Template for task quantities per zone/floor"
                     )
-            
             with col2:
                 with open(worker_file, "rb") as f:
                     st.download_button(
@@ -1349,12 +1345,9 @@ def generate_schedule_ui():
                 workers_used,        # positional
                 equipment_used       # positional
             )
-            
             progress_bar.progress(95)
             status_text.text("✅ Schedule generated successfully!")
-            
             st.success("🎉 Schedule generated successfully!")
-            
             # Display quick stats
             if schedule:
                 total_tasks = len(schedule)
@@ -1381,7 +1374,6 @@ def generate_schedule_ui():
                     "🔧 Resources": [],
                     "📋 Other": []
                 }
-                
                 for file_name in os.listdir(output_folder):
                     file_path = os.path.join(output_folder, file_name)
                     if os.path.isfile(file_path):
