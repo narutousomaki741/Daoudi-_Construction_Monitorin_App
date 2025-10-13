@@ -112,7 +112,7 @@ def parse_equipment_excel(df: pd.DataFrame) -> Dict[str, EquipmentResource]:
 
     return equipment_dict if equipment_dict else default_equipment
 
-def parse_quantity_excel(df: pd.DataFrame) -> Dict[str, float]::
+def parse_quantity_excel(df: pd.DataFrame) -> Dict[str, Dict]::
     """
     Parse a quantity Excel uploaded by the user.
     Expected columns: TaskID, Zone, Floor, Quantity
