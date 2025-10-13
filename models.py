@@ -67,3 +67,14 @@ class Task:
     latest_start: Optional[datetime] = None
     latest_finish: Optional[datetime] = None
     delay: int = 0
+    
+    def __post_init__(self):
+        if self.constraints is None:
+            self.constraints = []
+        # default min to the requested crews if not provided
+        if self.min_crews_needed is None:
+            # ensure at least 1 unless crews_needed is 0
+            self.min_crews_needed = max(1, int(self.min_crews_needed)) if getattr(self, "min_crews_needed", 0) else 0
+        # default min equipment if not provided: use equipment_needed itself
+        if self.min_equipment_needed is None:
+            self.min_equipment_needed = {}
