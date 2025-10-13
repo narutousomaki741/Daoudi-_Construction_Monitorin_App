@@ -1242,16 +1242,10 @@ def generate_schedule_ui():
             st.warning("Please upload the equipment Template Excel.")
             return
         # Parse uploaded files
-        try:
-            df_qty = pd.read_excel(quantity_file)
-            quantity_matrix = parse_quantity_excel(df_qty)
-        except Exception as e:
-            st.error(f"Error parsing quantity matrix: {e}")
-            return
-        if worker_file:
+        if quantity_file:
             try:
-                df_quantity = pd.read_excel(worker_file)
-                quantity_used = parse_quantity_excel(df_worker)
+                df_quantity = pd.read_excel(quantity_file)
+                quantity_used = parse_quantity_excel(df_quantity)
             except Exception as e:
                 st.error(f"Error parsing quantity template: {e}")
                 return
