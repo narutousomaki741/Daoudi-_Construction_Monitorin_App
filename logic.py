@@ -111,7 +111,8 @@ class AdvancedResourceManager:
         res_max = getattr(res, "max_crews", None)
         if res_max is not None and res_max > 0:
                candidate = min(candidate, int(res_max))
-
+        print(f"[ALLOC 22 DEBUG] {task.id} disc={task.discipline} min_needed={min_needed} "
+        f"factor={factor} res_max={res_max} pool={total_pool} used={used}")
         # final allocation is the maximum we can give within [min_needed, candidate] limited by available
         allocated = min(candidate, available)
 
