@@ -1272,7 +1272,7 @@ def generate_schedule_ui():
             try:
                 schedule, output_folder = run_schedule(
                     zones_floors,
-                    quantity_matrix=quantity_used,
+                    quantity_used,
                     start_date,
                     workers_dict=workers_used,
                     equipment_dict=equipment_used
