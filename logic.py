@@ -1248,7 +1248,13 @@ def generate_schedule_ui():
         except Exception as e:
             st.error(f"Error parsing quantity matrix: {e}")
             return
-
+        if worker_file:
+            try:
+                df_quantity = pd.read_excel(worker_file)
+                quantity_used = parse_quantity_excel(df_worker)
+            except Exception as e:
+                st.error(f"Error parsing quantity template: {e}")
+                return
         # Worker data
         if worker_file:
             try:
@@ -1272,7 +1278,7 @@ def generate_schedule_ui():
             try:
                 schedule, output_folder = run_schedule(
                     zones_floors,
-                    quantity_matrix,
+                    quantity_matrix=quantity_used,
                     start_date,
                     workers_dict=workers_used,
                     equipment_dict=equipment_used
