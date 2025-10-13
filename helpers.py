@@ -1,6 +1,6 @@
 import pandas as pd
 from typing import Dict, Optional
-from defaults import WorkerResource, EquipmentResource, workers as default_workers, equipment as default_equipment, BASE_TASKS, cross_floor_links
+from defaults import workers as default_workers, equipment as default_equipment, BASE_TASKS, cross_floor_links
 from dataclasses import dataclass, field
 from typing import List, Optional, Dict
 
