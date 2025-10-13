@@ -1186,11 +1186,11 @@ def generate_schedule_ui():
             with open(qty_file, "rb") as f:
                 st.download_button("⬇️ Download Quantity Template", f, file_name="quantity_template.xlsx")
 
-            worker_file = generate_worker_template(default_workers)
+            worker_file = generate_worker_template(workers)
             with open(worker_file, "rb") as f:
                 st.download_button("⬇️ Download Worker Template", f, file_name="worker_template.xlsx")
 
-            equip_file = generate_equipment_template(default_equipment)
+            equip_file = generate_equipment_template(equipment)
             with open(equip_file, "rb") as f:
                 st.download_button("⬇️ Download Equipment Template", f, file_name="equipment_template.xlsx")
         except Exception as e:
