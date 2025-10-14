@@ -16,12 +16,7 @@ import plotly.express as px
 from io import BytesIO
 from models import Task,BaseTask, WorkerResource, EquipmentResource
 from defaults import workers, equipment, BASE_TASKS, cross_floor_links, acceleration, SHIFT_CONFIG
-from logic import (
-    AdvancedCalender,
-    DurationCalculator,
-    CPMAnalyzer,
-    AdvancedScheduler
-          )
+from logic import run_schedule
 from helpers import (
     parse_quantity_excel,
     parse_worker_excel,
