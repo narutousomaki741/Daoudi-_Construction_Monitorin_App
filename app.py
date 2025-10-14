@@ -52,8 +52,8 @@ def main():
         auth_manager.require_auth("read")
         
         # Inject professional CSS
-        from ui_pages import inject_professional_css
-        inject_professional_css()
+        from ui_pages import inject_ui_styles
+        inject_ui_styles()
         
         # Render professional sidebar with user profile
         from ui_pages import render_enhanced_sidebar
