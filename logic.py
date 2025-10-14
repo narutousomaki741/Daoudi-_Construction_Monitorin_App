@@ -647,6 +647,8 @@ def run_schedule(zone_floors, quantity_matrix, start_date, workers_dict=None, eq
 
 # ---------------- Final generate_schedule_ui ----------------
 
+
+
 def generate_schedule_ui():
     from reporting import generate_interactive_gantt
     """Main Streamlit interface for Construction Scheduling Web App"""
@@ -707,26 +709,25 @@ def generate_schedule_ui():
         - Equipment Template → machine counts and rates
         """)
 
-        col1, col2 = st.columns([3, 2])
-        with col1:
-            if st.button("📥 Generate Templates", type="primary", use_container_width=True):
-                try:
-                    with st.spinner("Preparing templates..."):
-                        qty_file = generate_quantity_template(BASE_TASKS, zones_floors)
-                        worker_file = generate_worker_template(workers)
-                        equip_file = generate_equipment_template(equipment)
+        if st.button("📥 Generate Templates", type="primary", use_container_width=True):
+            try:
+                with st.spinner("Preparing templates..."):
+                    qty_file = generate_quantity_template(BASE_TASKS, zones_floors)
+                    worker_file = generate_worker_template(workers)
+                    equip_file = generate_equipment_template(equipment)
 
-                        st.session_state["templates_ready"] = True
-                        st.session_state["qty_file"] = qty_file
-                        st.session_state["worker_file"] = worker_file
-                        st.session_state["equip_file"] = equip_file
+                    st.session_state["templates_ready"] = True
+                    st.session_state["qty_file"] = qty_file
+                    st.session_state["worker_file"] = worker_file
+                    st.session_state["equip_file"] = equip_file
 
-                    st.success("✅ Templates generated successfully!")
-                except Exception as e:
-                    st.error(f"❌ Failed to generate templates: {e}")
+                st.success("✅ Templates generated successfully!")
+            except Exception as e:
+                st.error(f"❌ Failed to generate templates: {e}")
 
         # 🔁 Always show download buttons once generated
         if st.session_state.get("templates_ready", False):
+            st.subheader("⬇️ Download Templates")
             col1, col2, col3 = st.columns(3)
             for label, key, col in [
                 ("⬇️ Quantity Template", "qty_file", col1),
@@ -784,6 +785,7 @@ def generate_schedule_ui():
             ]
             st.warning(f"📋 Missing: {', '.join(missing)}")
 
+        # Run scheduling engine only once
         if st.button("🚀 Generate Project Schedule", type="primary", use_container_width=True, disabled=not all_ready):
             try:
                 progress = st.progress(0)
@@ -812,65 +814,93 @@ def generate_schedule_ui():
                     holidays=None,
                 )
                 progress.progress(90)
-                time.sleep(0.5)
 
-                status.subheader("💫 Finalizing Output...")
-                progress.progress(100)
-                st.success("🎉 Schedule generated successfully!")
+                # Store generated files in session
+                st.session_state["schedule_generated"] = True
+                st.session_state["output_folder"] = output_folder
+                st.session_state["generated_files"] = [
+                    os.path.join(output_folder, f) for f in os.listdir(output_folder)
+                ]
 
-                # ---------------- ALL DOWNLOAD BUTTONS ----------------
-                generated_files = []
-                for f in os.listdir(output_folder):
-                    generated_files.append(os.path.join(output_folder, f))
-
-                # Gantt HTML
-                  st.session_state["generated_files"] = generated_files
-                  st.session_state["schedule_generated"] = True
-
-
+                # Generate Gantt chart HTML
                 schedule_excel_path = os.path.join(output_folder, "construction_schedule_optimized.xlsx")
-                schedule_excel = pd.read_excel(schedule_excel_path)
-
-               # Only generate Gantt if Excel has required columns
-                if not schedule_excel.empty:
+                if os.path.exists(schedule_excel_path):
                     gantt_html = os.path.join(output_folder, "interactive_gantt.html")
-                    generate_interactive_gantt(schedule_excel, gantt_html)
-                    generated_files.append(gantt_html)
-                else:
-                    st.warning("⚠️ Schedule Excel is empty ")
+                    generate_interactive_gantt(pd.read_excel(schedule_excel_path), gantt_html)
+                    st.session_state["generated_files"].append(gantt_html)
 
-                
-                if st.session_state.get("schedule_generated", False):
-                    st.subheader("📂 Download Generated Excel Files")
-                    excel_files = [f for f in st.session_state["generated_files"] if f.endswith(".xlsx")]
-                    cols = st.columns(3)
-                    for i, file_path in enumerate(excel_files):
-                        if os.path.exists(file_path):
-                            with open(file_path, "rb") as f:
-                                cols[i % 3].download_button(
-                                os.path.basename(file_path),
-                                f,
-                                file_name=os.path.basename(file_path),
-                                use_container_width=True,
-                                )
-                    # Separate Gantt HTML download
-                    gantt_files = [f for f in st.session_state["generated_files"] if f.endswith(".html")]
-                    if gantt_files:
-                        st.subheader("📊 Download Interactive Gantt Chart")
-                        gantt_file = gantt_files[0]  # normally only one
-                        if os.path.exists(gantt_file):
-                            with open(gantt_file, "rb") as f:
-                                st.download_button(  "⬇️ Gantt Chart (HTML)",
-                                                  f,
-                                                  file_name=os.path.basename(gantt_file),
-                                                  use_container_width=True,
-                                                     )
+                st.success("🎉 Schedule generated successfully!")
+                progress.progress(100)
 
             except Exception as e:
                 st.error(f"❌ Failed to generate schedule: {e}")
                 if st.checkbox("🔍 Show error details"):
                     st.exception(e)
 
+        # ---------------- DOWNLOAD SECTION (always visible) ----------------
+        if st.session_state.get("schedule_generated", False):
+            st.subheader("📂 Download Generated Excel Files")
+
+            excel_files = [f for f in st.session_state["generated_files"] if f.endswith(".xlsx")]
+            cols = st.columns(3)
+            for i, file_path in enumerate(excel_files):
+                if os.path.exists(file_path):
+                    with open(file_path, "rb") as f:
+                        cols[i % 3].download_button(
+                            os.path.basename(file_path),
+                            f,
+                            file_name=os.path.basename(file_path),
+                            use_container_width=True,
+                        )
+
+            # ---- GANTT CHART (separate orange button) ----
+            gantt_files = [f for f in st.session_state["generated_files"] if f.endswith(".html")]
+            if gantt_files:
+                st.subheader("📊 Interactive Gantt Chart")
+
+                st.markdown("""
+                    <style>
+                    div.stButton > button.custom-gantt {
+                        background-color: #ff7f0e;
+                        color: white;
+                        border-radius: 12px;
+                        padding: 0.6em 1.2em;
+                        border: none;
+                        font-weight: bold;
+                        font-size: 16px;
+                        width: 40%;
+                        display: block;
+                        margin: 0 auto;
+                        transition: 0.3s;
+                    }
+                    div.stButton > button.custom-gantt:hover {
+                        background-color: #e06a00;
+                        transform: scale(1.03);
+                    }
+                    </style>
+                """, unsafe_allow_html=True)
+
+                gantt_file = gantt_files[0]
+                if os.path.exists(gantt_file):
+                    with open(gantt_file, "rb") as f:
+                        st.download_button(
+                            "⬇️ Download Interactive Gantt (HTML)",
+                            f,
+                            file_name=os.path.basename(gantt_file),
+                            key="gantt_download",
+                            use_container_width=True,
+                        )
+
+                # Apply CSS class via JS (to style button)
+                st.markdown("""
+                    <script>
+                    const btns = window.parent.document.querySelectorAll('button[kind="secondary"]');
+                    if (btns.length) {
+                        btns[btns.length - 1].classList.add('custom-gantt');
+                    }
+                    </script>
+                """, unsafe_allow_html=True)
+
     # ---------------- SIDEBAR HELP ----------------
     with st.sidebar:
         st.header("💡 Help & Guidance")
@@ -886,21 +916,7 @@ def generate_schedule_ui():
         - Worker Template  
         - Equipment Template
         """)
-    # ---------------- SIDEBAR HELP ----------------
-    with st.sidebar:
-        st.header("💡 Help & Guidance")
-        st.markdown("""
-        **Steps:**
-        1️⃣ Configure project zones & floors  
-        2️⃣ Download Excel templates  
-        3️⃣ Upload filled data  
-        4️⃣ Generate optimized schedule  
-        
-        **Required Files:**
-        - Quantity Matrix  
-        - Worker Template  
-        - Equipment Template
-        """)
+  
 
 def analyze_project_progress(reference_df: pd.DataFrame, actual_df: pd.DataFrame) -> pd.DataFrame:
     """
