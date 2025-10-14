@@ -1,5 +1,6 @@
 streamlit
 PyYAML
+PyJWT
 pandas
 numpy
 plotly
