@@ -2,6 +2,7 @@ import os
 import tempfile
 import pandas as pd
 from typing import Dict
+from collections import defaultdict, deque
 from models import WorkerResource, EquipmentResource, BaseTask
 from defaults import BASE_TASKS,Task, workers as default_workers, equipment as default_equipment
 
