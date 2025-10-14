@@ -824,7 +824,8 @@ def generate_schedule_ui():
                     generated_files.append(os.path.join(output_folder, f))
 
                 # Gantt HTML
-                
+                  st.session_state["generated_files"] = generated_files
+                  st.session_state["schedule_generated"] = True
 
 
                 schedule_excel_path = os.path.join(output_folder, "construction_schedule_optimized.xlsx")
@@ -839,17 +840,31 @@ def generate_schedule_ui():
                     st.warning("⚠️ Schedule Excel is empty ")
 
                 
-                st.subheader("📂 Download Generated Files")
-                cols = st.columns(3)
-                for i, file_path in enumerate(generated_files):
-                    if os.path.exists(file_path):
-                        with open(file_path, "rb") as f:
-                            cols[i % 3].download_button(
+                if st.session_state.get("schedule_generated", False):
+                    st.subheader("📂 Download Generated Excel Files")
+                    excel_files = [f for f in st.session_state["generated_files"] if f.endswith(".xlsx")]
+                    cols = st.columns(3)
+                    for i, file_path in enumerate(excel_files):
+                        if os.path.exists(file_path):
+                            with open(file_path, "rb") as f:
+                                cols[i % 3].download_button(
                                 os.path.basename(file_path),
                                 f,
                                 file_name=os.path.basename(file_path),
                                 use_container_width=True,
-                            )
+                                )
+                    # Separate Gantt HTML download
+                    gantt_files = [f for f in st.session_state["generated_files"] if f.endswith(".html")]
+                    if gantt_files:
+                        st.subheader("📊 Download Interactive Gantt Chart")
+                        gantt_file = gantt_files[0]  # normally only one
+                        if os.path.exists(gantt_file):
+                            with open(gantt_file, "rb") as f:
+                                st.download_button(  "⬇️ Gantt Chart (HTML)",
+                                                  f,
+                                                  file_name=os.path.basename(gantt_file),
+                                                  use_container_width=True,
+                                                     )
 
             except Exception as e:
                 st.error(f"❌ Failed to generate schedule: {e}")
