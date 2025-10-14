@@ -648,21 +648,8 @@ def run_schedule(zone_floors, quantity_matrix, start_date, workers_dict=None, eq
 # ---------------- Final generate_schedule_ui ----------------
 
 def generate_schedule_ui():
-    import streamlit as st
-    import os, shutil, time, pandas as pd
+    
     from reporting import generate_interactive_gantt
-    from logic_helpers import (
-        generate_quantity_template,
-        generate_worker_template,
-        generate_equipment_template,
-        parse_quantity_excel,
-        parse_worker_excel,
-        parse_equipment_excel,
-        run_schedule,
-        BASE_TASKS,
-        workers,
-        equipment,
-    )
 
     st.set_page_config(layout="wide", page_title="🏗️ Construction Scheduler")
     st.header("🏗️ Construction Project Scheduler")
