@@ -725,7 +725,7 @@ def generate_schedule_ui():
                             st.download_button(file_label, f, file_name=os.path.basename(file_path))
 
                     st.success("✅ All templates generated successfully!")
-            if st.button("📥 Generate All Templates", type="primary", use_container_width=True):
+            if st.button("📥 Download All Templates", type="primary", use_container_width=True):
                 try:
                     with st.spinner("Preparing templates..."):
                     qty_file = generate_quantity_template(BASE_TASKS, zones_floors)
