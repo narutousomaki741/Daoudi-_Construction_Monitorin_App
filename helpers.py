@@ -7,7 +7,7 @@ from defaults import BASE_TASKS, workers as default_workers, equipment as defaul
 
 # Build TASK_ID_NAME from BASE_TASKS
 TASK_ID_NAME = {task.id: task.name for tasks in BASE_TASKS.values() for task in tasks}
-
+ground_disciplines=["Préliminaire","Terrassement","Fondations"]
 
 # ------------------------- Parse Functions -------------------------
 
