@@ -19,7 +19,7 @@ from models import Task,BaseTask, WorkerResource, EquipmentResource
 from defaults import workers, equipment, BASE_TASKS, cross_floor_links, acceleration, SHIFT_CONFIG
 
 from helpers import (
-     Topo_order_tasts,
+    Topo_order_tasts,
     generate_tasks,
     validate_tasks,
     parse_quantity_excel,
@@ -723,32 +723,7 @@ class CPMAnalyzer:
         return self
 
 # -----------------------------
-# Topological ordering util for Task objects (for scheduling)
-# -----------------------------
-def Topo_order_tasks(tasks):
-    indegree = {t.id: 0 for t in tasks}
-    successors = {t.id: [] for t in tasks}
 
-    for t in tasks:
-        for p in t.predecessors:
-            indegree[t.id] += 1
-            successors[p].append(t.id)
-
-    queue = deque([tid for tid, deg in indegree.items() if deg == 0])
-    ordered_ids = []
-
-    while queue:
-        current = queue.popleft()
-        ordered_ids.append(current)
-        for succ in successors[current]:
-            indegree[succ] -= 1
-            if indegree[succ] == 0:
-                queue.append(succ)
-
-    if len(ordered_ids) != len(tasks):
-        raise RuntimeError("Cycle detected in task dependencies")
-
-    return ordered_ids
 # -----------------------------
 # Advanced Scheduler
 # -----------------------------
