@@ -648,10 +648,22 @@ def run_schedule(zone_floors, quantity_matrix, start_date, workers_dict=None, eq
 # ---------------- Final generate_schedule_ui ----------------
 
 def generate_schedule_ui():
-    """Main Streamlit interface for Construction Scheduling Web App"""
-  
+    import streamlit as st
+    import os, shutil, time, pandas as pd
     from reporting import generate_interactive_gantt
-    # Page setup
+    from logic_helpers import (
+        generate_quantity_template,
+        generate_worker_template,
+        generate_equipment_template,
+        parse_quantity_excel,
+        parse_worker_excel,
+        parse_equipment_excel,
+        run_schedule,
+        BASE_TASKS,
+        workers,
+        equipment,
+    )
+
     st.set_page_config(layout="wide", page_title="🏗️ Construction Scheduler")
     st.header("🏗️ Construction Project Scheduler")
 
@@ -670,10 +682,9 @@ def generate_schedule_ui():
                 min_value=1,
                 max_value=30,
                 value=2,
-                help="Each zone is a distinct section of your building",
+                help="A zone is a distinct section of your building",
             )
 
-            # Removed "Total Floors" input globally; only per-zone floor counts remain
             zones_floors = {}
             for i in range(num_zones):
                 st.markdown(f"**Zone {i + 1}**")
@@ -687,7 +698,7 @@ def generate_schedule_ui():
                     )
                 with col2:
                     floors = st.number_input(
-                        "Floors", min_value=1, max_value=60, value=5, key=f"floors_{i}"
+                        "Floors", min_value=0, max_value=60, value=5, key=f"floor_{i}"
                     )
                 zones_floors[zone_name] = floors
 
@@ -695,23 +706,19 @@ def generate_schedule_ui():
 
         with st.expander("ℹ️ Project Information", expanded=False):
             project_name = st.text_input("Project Name", value="My Construction Project")
-            project_manager = st.text_input("Project Manager", placeholder="Enter project manager name")
+            project_manager = st.text_input("Project Manager", placeholder="Enter name")
 
     # ---------------- TAB 2: TEMPLATE DOWNLOADS ----------------
     with tab2:
         st.subheader("📊 Generate Default Data Templates")
 
         st.markdown("""
-        **Step 1:** Download and fill templates with your project data:  
+        **Step 1:** Download and fill templates with your project data:
         - Quantity Template → task quantities per zone/floor  
         - Worker Template → crew sizes and productivity rates  
         - Equipment Template → machine counts and rates
         """)
 
-        if "templates_ready" not in st.session_state:
-            st.session_state["templates_ready"] = False
-
-        # Unified single download action
         if st.button("📥 Generate Templates", type="primary", use_container_width=True):
             try:
                 with st.spinner("Preparing templates..."):
@@ -719,33 +726,34 @@ def generate_schedule_ui():
                     worker_file = generate_worker_template(workers)
                     equip_file = generate_equipment_template(equipment)
 
-                    st.session_state["templates_ready"] = True
-                    st.session_state["qty_file"] = qty_file
-                    st.session_state["worker_file"] = worker_file
-                    st.session_state["equip_file"] = equip_file
-
+                st.session_state.update({
+                    "templates_ready": True,
+                    "qty_file": qty_file,
+                    "worker_file": worker_file,
+                    "equip_file": equip_file
+                })
                 st.success("✅ Templates generated successfully!")
+
             except Exception as e:
                 st.error(f"❌ Failed to generate templates: {e}")
 
-        # Persistent download buttons after generation
         if st.session_state.get("templates_ready", False):
-            st.markdown("### ⬇️ Download Templates")
             col1, col2, col3 = st.columns(3)
             for label, key, col in [
-                ("Quantity Template", "qty_file", col1),
-                ("Worker Template", "worker_file", col2),
-                ("Equipment Template", "equip_file", col3),
+                ("⬇️ Quantity Template", "qty_file", col1),
+                ("⬇️ Worker Template", "worker_file", col2),
+                ("⬇️ Equipment Template", "equip_file", col3),
             ]:
                 path = st.session_state.get(key)
                 if path and os.path.exists(path):
                     with open(path, "rb") as f:
                         col.download_button(
-                            f"📄 {label}",
+                            label,
                             f,
                             file_name=os.path.basename(path),
                             use_container_width=True,
                         )
+
     # ---------------- TAB 3: UPLOAD ----------------
     with tab3:
         st.subheader("📤 Upload Your Data")
@@ -792,7 +800,6 @@ def generate_schedule_ui():
                 progress = st.progress(0)
                 status = st.empty()
 
-                # --- Parse input files ---
                 status.subheader("📊 Parsing Excel files...")
                 df_quantity = pd.read_excel(quantity_file)
                 quantity_used = parse_quantity_excel(df_quantity)
@@ -806,7 +813,6 @@ def generate_schedule_ui():
                 equipment_used = parse_equipment_excel(df_equip)
                 progress.progress(60)
 
-                # --- Run scheduling logic ---
                 status.subheader("🏗️ Running Schedule Engine...")
                 schedule, output_folder = run_schedule(
                     zone_floors=zones_floors,
@@ -819,40 +825,45 @@ def generate_schedule_ui():
                 progress.progress(90)
                 time.sleep(0.5)
 
-                # --- Handle schedule output ---
-                status.subheader("💫 Finalizing Output...")
-                progress.progress(100)
-                st.success("🎉 Schedule generated successfully!")
-
-                # --- Merge all schedule parts safely ---
-                if isinstance(schedule, dict):
-                    all_tasks = pd.concat(
-                        [v for v in schedule.values() if isinstance(v, pd.DataFrame)],
-                        ignore_index=True
-                    )
+                # ---------------- SAFETY CHECK ----------------
+                if isinstance(schedule, dict) and schedule:
+                    valid_dfs = [df for df in schedule.values() if isinstance(df, pd.DataFrame) and not df.empty]
+                    if valid_dfs:
+                        schedule_df = pd.concat(valid_dfs, ignore_index=True)
+                    else:
+                        st.warning("⚠️ No valid schedule dataframes found.")
+                        return
+                elif isinstance(schedule, pd.DataFrame) and not schedule.empty:
+                    schedule_df = schedule
                 else:
-                    all_tasks = schedule
+                    st.warning("⚠️ Schedule is empty.")
+                    return
+
+                # ---------------- SUMMARY ----------------
                 start_ts = pd.Timestamp(start_date)
-                project_end = pd.to_datetime(all_tasks["End"].max())
-                project_end=pd.Timestamp(project_end)
+                project_end = pd.to_datetime(schedule_df["End"]).max()
                 duration_days = (project_end - start_ts).days
 
-                # --- Summary ---
+                st.success("🎉 Schedule generated successfully!")
+                progress.progress(100)
+
                 st.subheader("📊 Project Summary")
                 c1, c2, c3, c4 = st.columns(4)
-                c1.metric("Total Tasks", len(all_tasks))
+                c1.metric("Total Tasks", len(schedule_df))
                 c2.metric("Project Duration", f"{duration_days} days", f"Ends {project_end:%b %d, %Y}")
-                c3.metric("Avg Task Duration", f"{duration_days / max(1, len(all_tasks)):.1f} days")
+                c3.metric("Avg Task Duration", f"{duration_days / max(1, len(schedule_df)):.1f} days")
                 c4.metric("Zones", len(zones_floors))
 
-                # --- Download results ---
+                # ---------------- DOWNLOAD SECTION ----------------
                 if os.path.exists(output_folder):
                     st.subheader("📂 Download Results")
+
                     zip_path = os.path.join(
                         output_folder,
                         f"project_schedule_{start_date.strftime('%Y%m%d')}.zip",
                     )
                     shutil.make_archive(zip_path[:-4], "zip", output_folder)
+
                     with open(zip_path, "rb") as f:
                         st.download_button(
                             "📦 Download Full Report Package",
@@ -860,50 +871,37 @@ def generate_schedule_ui():
                             file_name=os.path.basename(zip_path),
                             mime="application/zip",
                         )
-                # --- Gantt chart generation ---
-                st.subheader("📊 Interactive Gantt Chart")
-                schedule_excel = next(
-                    (
-                        os.path.join(output_folder, f)
-                        for f in os.listdir(output_folder)
-                        if "schedule" in f.lower() and f.endswith(".xlsx")
-                    ),
-                    None,
-                )
-                if schedule_excel and os.path.exists(schedule_excel):
-                    df = pd.read_excel(schedule_excel)
-                    gantt_html = os.path.join(output_folder, "interactive_gantt.html")
-                    generate_interactive_gantt(df, gantt_html)
 
-                    with open(gantt_html, "rb") as f:
-                        st.download_button(
-                            "📊 Download Interactive Gantt",
-                            f,
-                            file_name="interactive_gantt.html",
-                            mime="text/html",
-                        )
-                    st.success("✅ Interactive Gantt generated!")
-                else:
-                    st.warning("⚠️ No schedule file found for Gantt chart generation.")
+                # ---------------- GANTT CHART ----------------
+                st.subheader("📊 Interactive Gantt Chart")
+                gantt_html = os.path.join(output_folder, "interactive_gantt.html")
+                generate_interactive_gantt(schedule_df, gantt_html)
+
+                with open(gantt_html, "rb") as f:
+                    st.download_button(
+                        "📊 Download Interactive Gantt",
+                        f,
+                        file_name="interactive_gantt.html",
+                        mime="text/html",
+                    )
+                st.success("✅ Interactive Gantt generated!")
+
             except Exception as e:
                 st.error(f"❌ Failed to generate schedule: {e}")
                 if st.checkbox("🔍 Show error details"):
                     st.exception(e)
+
     # ---------------- SIDEBAR HELP ----------------
     with st.sidebar:
         st.header("💡 Help & Guidance")
         st.markdown("""
         **Steps:**
         1️⃣ Configure project zones & floors  
-        2️⃣ Generate Excel templates  
+        2️⃣ Download Excel templates  
         3️⃣ Upload filled data  
         4️⃣ Generate optimized schedule  
-
-        **Required Files:**
-        - Quantity Matrix  
-        - Worker Template  
-        - Equipment Template
         """)
+
 def analyze_project_progress(reference_df: pd.DataFrame, actual_df: pd.DataFrame) -> pd.DataFrame:
     """
     Compute planned vs actual progress time series and deviations.
