@@ -821,13 +821,11 @@ def generate_schedule_ui():
                 # ---------------- ALL DOWNLOAD BUTTONS ----------------
                 generated_files = []
                 for f in os.listdir(output_folder):
-                    if f.endswith(".xlsx") or f.endswith(".csv"):
-                        generated_files.append(os.path.join(output_folder, f))
+                    generated_files.append(os.path.join(output_folder, f))
 
                 # Gantt HTML
-                schedule_excel = next(
-                    (f for f in generated_files if "schedule" in f.lower() and f.endswith(".xlsx")), None
-                )
+                schedule_excel_path = os.path.join(output_folder, "construction_schedule_optimized.xlsx")                  
+                schedule_excel =pd.read_excel(schedule_excel_path )
                 if schedule_excel:
                     gantt_html = os.path.join(output_folder, "interactive_gantt.html")
                     generate_interactive_gantt(pd.read_excel(schedule_excel), gantt_html)
