@@ -19,7 +19,7 @@ from models import Task,BaseTask, WorkerResource, EquipmentResource
 from defaults import workers, equipment, BASE_TASKS, cross_floor_links, acceleration, SHIFT_CONFIG
 
 from helpers import (
-    Topo_order_tasts,
+    Topo_order_tasks,
     generate_tasks,
     validate_tasks,
     parse_quantity_excel,
@@ -36,7 +36,6 @@ logging.basicConfig(
 )
 ground_disciplines=["Préliminaire","Terrassement","Fondations"]
 # ----------------------------
-
 
 class ResourceAllocationList:
     def __init__(self):
