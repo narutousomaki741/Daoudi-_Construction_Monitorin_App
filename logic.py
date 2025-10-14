@@ -1,6 +1,6 @@
 import pandas as pd
 import tempfile
-import os
+import os, time, shutil
 import datetime 
 from datetime import timedelta
 from dataclasses import dataclass, field
@@ -646,24 +646,9 @@ def run_schedule(zone_floors, quantity_matrix, start_date, workers_dict=None, eq
     return schedule, output_folder
 
 # ---------------- Final generate_schedule_ui ----------------
-import os, time, shutil
-
-from reporting import generate_interactive_gantt
-from templates import (
-    generate_quantity_template,
-    generate_worker_template,
-    generate_equipment_template,
-)
-from parsers import (
-    parse_quantity_excel,
-    parse_worker_excel,
-    parse_equipment_excel,
-)
-from scheduler import run_schedule
-from resources import workers, equipment, BASE_TASKS
-
 
 def generate_schedule_ui():
+    from reporting import generate_interactive_gantt
     """Main Streamlit interface for Construction Scheduling Web App"""
     st.set_page_config(layout="wide", page_title="🏗️ Construction Scheduler")
 
