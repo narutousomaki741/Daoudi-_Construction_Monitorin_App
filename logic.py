@@ -93,17 +93,20 @@ class DurationCalculator:
     def _get_quantity(self, task: Task):
         base_q = self.quantity_matrix.get(str(task.base_id), {})
         floor_q = base_q.get(task.floor, {})
-        q = floor_q.get(task.zone, task.quantity)
-        if floor_q is None:  # fallback triggered
-            print(f"⚠️ Task {task.base_id} not found in quantity_matrix")
-        else:
-            qty = floor_q.get(task.zone, task.quantity)
-        if qty is None or qty<=1:
+    
+        if not floor_q:  # Check if floor_q is empty dict or None
             print(f"⚠️ Floor {task.floor} for task {task.base_id} not found in quantity_matrix")
+            qty = getattr(task, 'quantity', 1)  # Fallback
         else:
-            print(f"✅ Task {task.base_id}, floor {task.floor} quantity: {qty}")
-        task.quantity=q
-        return q
+            qty = floor_q.get(task.zone, getattr(task, 'quantity', 1))
+    
+        if qty is None or qty <= 0:
+            print(f"⚠️ Invalid quantity {qty} for task {task.base_id}, defaulting to 1")
+            qty = 1
+    
+        print(f"✅ Task {task.base_id}, floor {task.floor} quantity: {qty}")
+        task.quantity = qty
+        return qty
 
     def _get_productivity_rate(self, resource, task_id, default=1.0):
         """Get task-specific productivity rate from resource."""
