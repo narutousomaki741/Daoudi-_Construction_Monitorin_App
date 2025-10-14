@@ -234,6 +234,32 @@ def generate_quantity_template(base_tasks=BASE_TASKS, zones_floors=None):
     df.to_excel(file_path, index=False)
     return file_path
 
+# Topological ordering util for Task objects (for scheduling)
+# -----------------------------
+def Topo_order_tasks(tasks):
+    indegree = {t.id: 0 for t in tasks}
+    successors = {t.id: [] for t in tasks}
+
+    for t in tasks:
+        for p in t.predecessors:
+            indegree[t.id] += 1
+            successors[p].append(t.id)
+
+    queue = deque([tid for tid, deg in indegree.items() if deg == 0])
+    ordered_ids = []
+
+    while queue:
+        current = queue.popleft()
+        ordered_ids.append(current)
+        for succ in successors[current]:
+            indegree[succ] -= 1
+            if indegree[succ] == 0:
+                queue.append(succ)
+
+    if len(ordered_ids) != len(tasks):
+        raise RuntimeError("Cycle detected in task dependencies")
+
+    return ordered_ids
 def generate_tasks(base_tasks_dict, zone_floors, cross_floor_links=None, ground_disciplines=ground_disciplines):
     """
     Generates multi-floor and multi-zone tasks from base task definitions,
