@@ -1,15 +1,178 @@
-# .streamlit/config.toml
-[theme]
-primaryColor = "#1e90ff"          # Construction-blue accent
-backgroundColor = "#f8f9fa"       # Light gray background
-secondaryBackgroundColor = "#ffffff"
-textColor = "#1a1a1a"
-font = "sans serif"
+# config.yaml (PROFESSIONAL CONFIGURATION)
+app:
+  name: "Construction Project Manager Pro"
+  version: "2.0.0"
+  description: "Professional construction project scheduling and monitoring system"
+  environment: "production"  # development, staging, production
 
-[server]
-headless = true
-enableCORS = false
-port = 8501
+# Authentication & Security
+auth:
+  secret_key: "change-this-in-production-with-secure-random-string"
+  session_timeout_hours: 8
+  password_min_length: 8
+  max_login_attempts: 5
+  lockout_duration_minutes: 30
+  
+  # User roles and permissions
+  roles:
+    admin:
+      permissions: ["read", "write", "delete", "admin", "export", "import"]
+    project_manager:
+      permissions: ["read", "write", "export", "import"] 
+    viewer:
+      permissions: ["read", "export"]
 
-[browser]
-gatherUsageStats = false
+# UI Configuration
+ui:
+  theme: "light"  # light, dark, auto
+  default_zones: 2
+  max_zones: 30
+  max_floors: 60
+  page_layout: "wide"
+  enable_animations: true
+  show_metrics: true
+  
+  # Colors
+  colors:
+    primary: "#1f77b4"
+    secondary: "#ff7f0e" 
+    success: "#28a745"
+    warning: "#ffc107"
+    error: "#dc3545"
+    background: "#f8f9fa"
+
+# File Handling
+files:
+  max_size_mb: 50
+  supported_types: [".xlsx", ".xls"]
+  temp_dir: "temp"
+  backup_dir: "backups"
+  keep_backups_days: 30
+  
+  # Excel templates
+  templates:
+    quantity_template: "templates/quantity_template.xlsx"
+    worker_template: "templates/worker_template.xlsx"
+    equipment_template: "templates/equipment_template.xlsx"
+
+# Scheduling Engine
+scheduling:
+  default_start_hour: 8
+  default_end_hour: 17
+  work_days: [0, 1, 2, 3, 4]  # Monday to Friday
+  holidays: []  # Custom holidays can be added
+  
+  # Optimization settings
+  optimization:
+    enable_optimization: true
+    max_iterations: 1000
+    time_limit_seconds: 300
+    objective: "minimize_duration"  # minimize_duration, minimize_cost, balance_resources
+
+# Monitoring & Analytics
+monitoring:
+  enable_real_time: true
+  update_interval_minutes: 5
+  retention_days: 365
+  alerts:
+    enabled: true
+    progress_threshold: 0.1  # 10% deviation
+    delay_threshold_days: 3
+    
+  # S-curve analysis
+  scurve:
+    enabled: true
+    smoothing_days: 7
+    confidence_interval: 0.95
+
+# Performance & Caching
+performance:
+  enable_caching: true
+  cache_duration_hours: 6
+  background_processing: true
+  max_workers: 4
+  memory_limit_mb: 1024
+  
+  # Database (if added later)
+  database:
+    enabled: false
+    url: "sqlite:///construction.db"
+    pool_size: 5
+    max_overflow: 10
+
+# Logging Configuration
+logging:
+  level: "INFO"  # DEBUG, INFO, WARNING, ERROR
+  file: "logs/construction_app.log"
+  max_size_mb: 50
+  backup_count: 5
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+  
+  # Separate log files
+  audit_log: "logs/audit.log"
+  error_log: "logs/errors.log"
+
+# Email Notifications (Future Feature)
+notifications:
+  enabled: false
+  smtp_server: "smtp.gmail.com"
+  smtp_port: 587
+  sender_email: "noreply@constructionpro.com"
+  admin_email: "admin@constructionpro.com"
+  
+  # Notification triggers
+  triggers:
+    - on_schedule_completion: true
+    - on_progress_deviation: true
+    - on_milestone_reached: true
+
+# External Integrations (Future Features)
+integrations:
+  # Microsoft Project
+  ms_project:
+    enabled: false
+    export_format: "xml"
+    
+  # Primavera P6
+  primavera:
+    enabled: false
+    
+  # ERP Systems
+  erp:
+    enabled: false
+    systems: ["sap", "oracle", "dynamics"]
+
+# Default Values (Used in defaults.py)
+defaults:
+  workers:
+    - name: "Ouvrier"
+      crew_size: 4
+      productivity: 1.0
+    - name: "Charpentier"
+      crew_size: 3
+      productivity: 0.8
+      
+  equipment:
+    - name: "Grue"
+      count: 1
+      rate: 1.0
+    - name: "Bétonnière"
+      count: 2
+      rate: 1.5
+      
+  tasks:
+    - name: "Fondations"
+      duration: 5
+      category: "ground"
+    - name: "Ossature"
+      duration: 10
+      category: "structure"
+
+# Feature Flags (Enable/Disable features without code changes)
+features:
+  enable_schedule_export: true
+  enable_progress_monitoring: true
+  enable_resource_optimization: true
+  enable_multi_project: false
+  enable_collaboration: false
+  enable_api: false
