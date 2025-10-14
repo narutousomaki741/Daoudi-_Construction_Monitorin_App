@@ -646,289 +646,450 @@ def run_schedule(zone_floors, quantity_matrix, start_date, workers_dict=None, eq
     return schedule, output_folder
 
 # ---------------- Final generate_schedule_ui ----------------
-
-
-
 def generate_schedule_ui():
-    st.header("📅 Generate Project Schedule")
-    st.markdown("""
-        Upload or define your project inputs:
-        - Quantities per task/zone/floor
-        - Worker and equipment resources
-        - Outputs: Schedule, Gantt, Utilizations
-    """)
-    # ---------------- Zones & Floors ----------------
-    st.subheader("🏗️ Define Zones & Floors")
-    zones_floors = {}
-    num_zones = st.number_input("Number of zones?", min_value=1, max_value=20, value=2)
+    st.set_page_config(layout="wide")  # Better space usage
     
-    for i in range(num_zones):
-        col1, col2 = st.columns(2)
+    st.header("🏗️ Construction Project Scheduler")
+    
+    # Use tabs for better organization - IMPROVEMENT 1
+    tab1, tab2, tab3, tab4 = st.tabs(["📋 Project Setup", "📁 Templates", "📤 Upload Data", "🚀 Generate & Results"])
+    
+    with tab1:
+        st.subheader("Project Configuration")
+        
+        # Improved Zone Configuration - IMPROVEMENT 2
+        with st.expander("🏗️ Building Configuration", expanded=True):
+            num_zones = st.number_input("How many zones does your building have?", 
+                                       min_value=1, max_value=20, value=2,
+                                       help="A zone is a distinct section of your building")
+            
+            zones_floors = {}
+            for i in range(num_zones):
+                with st.container():
+                    st.markdown(f"**Zone {i+1}**")
+                    col1, col2, col3 = st.columns([2, 1, 1])
+                    with col1:
+                        zone_name = st.text_input(f"Zone name", value=f"Zone_{i+1}", 
+                                                 key=f"zone_{i}", placeholder="e.g., North_Wing")
+                    with col2:
+                        max_floor = st.number_input(f"Floors", min_value=0, max_value=100, 
+                                                   value=5, key=f"floor_{i}")
+                    with col3:
+                        st.metric("Total Floors", max_floor + 1)  # Visual feedback
+                    zones_floors[zone_name] = max_floor
+                    st.markdown("---")
+        
+        start_date = st.date_input("Project Start Date", value=pd.Timestamp.today())
+        
+        # Project info section
+        with st.expander("ℹ️ Project Information", expanded=False):
+            project_name = st.text_input("Project Name", value="My Construction Project")
+            project_manager = st.text_input("Project Manager", placeholder="Enter project manager name")
+    
+    with tab2:
+        st.subheader("📊 Download Data Templates")
+        
+        # Enhanced Template Generation - IMPROVEMENT 3
+        template_col1, template_col2 = st.columns([3, 2])
+
+        with template_col1:
+            st.markdown("""
+            **Step 1:** Download templates and fill them with your project data:
+            - **Quantity Template**: Task quantities per zone/floor
+            - **Worker Template**: Crew sizes and productivity rates  
+            - **Equipment Template**: Equipment counts and usage rates
+            
+            **💡 Tip**: Fill all yellow highlighted cells in the templates
+            """)
+
+        with template_col2:
+            if st.button("📥 Download All Templates", type="primary", use_container_width=True):
+                try:
+                    with st.spinner("Preparing all templates..."):
+                        qty_file = generate_quantity_template(BASE_TASKS, zones_floors)
+                        worker_file = generate_worker_template(workers)
+                        equip_file = generate_equipment_template(equipment)
+                    
+                    # Create download columns
+                    col1, col2, col3 = st.columns(3)
+                    
+                    with col1:
+                        with open(qty_file, "rb") as f:
+                            st.download_button(
+                                "⬇️ Quantity Template", 
+                                f, 
+                                file_name="quantity_template.xlsx",
+                                help="Template for task quantities per zone/floor",
+                                use_container_width=True
+                            )
+                    with col2:
+                        with open(worker_file, "rb") as f:
+                            st.download_button(
+                                "⬇️ Worker Template", 
+                                f, 
+                                file_name="worker_template.xlsx",
+                                help="Template for worker resources and productivity rates",
+                                use_container_width=True
+                            )
+                    with col3:
+                        with open(equip_file, "rb") as f:
+                            st.download_button(
+                                "⬇️ Equipment Template", 
+                                f, 
+                                file_name="equipment_template.xlsx",
+                                help="Template for equipment resources and productivity rates",
+                                use_container_width=True
+                            )
+                    
+                    st.success("✅ All templates generated successfully!")
+                    
+                except Exception as e:
+                    st.error(f"❌ Failed to generate templates: {str(e)}")
+        
+        # Individual template downloads
+        st.markdown("---")
+        st.markdown("**Or download individual templates:**")
+        
+        col1, col2, col3 = st.columns(3)
         with col1:
-            zone_name = st.text_input(f"Zone {i+1} Name", value=f"Zone_{i+1}", key=f"zone_{i}")
+            if st.button("📋 Quantity Template", use_container_width=True):
+                try:
+                    with st.spinner("Generating quantity template..."):
+                        qty_file = generate_quantity_template(BASE_TASKS, zones_floors)
+                    with open(qty_file, "rb") as f:
+                        st.download_button(
+                            "⬇️ Download Quantity Template",
+                            f,
+                            file_name="quantity_template.xlsx",
+                            use_container_width=True
+                        )
+                except Exception as e:
+                    st.error(f"❌ Failed to generate quantity template: {str(e)}")
+            st.caption("Task quantities per location")
+
         with col2:
-            max_floor = st.number_input(f"Max floors for {zone_name}", min_value=0, max_value=100, value=5, key=f"floor_{i}")
-        zones_floors[zone_name] = max_floor
+            if st.button("👷 Worker Template", use_container_width=True):
+                try:
+                    with st.spinner("Generating worker template..."):
+                        worker_file = generate_worker_template(workers)
+                    with open(worker_file, "rb") as f:
+                        st.download_button(
+                            "⬇️ Download Worker Template",
+                            f,
+                            file_name="worker_template.xlsx",
+                            use_container_width=True
+                        )
+                except Exception as e:
+                    st.error(f"❌ Failed to generate worker template: {str(e)}")
+            st.caption("Crew sizes & productivity")
 
-    # ---------------- Generate Default Templates ----------------
-    st.subheader("📁 Generate Default Excel Templates")
+        with col3:
+            if st.button("🏗️ Equipment Template", use_container_width=True):
+                try:
+                    with st.spinner("Generating equipment template..."):
+                        equip_file = generate_equipment_template(equipment)
+                    with open(equip_file, "rb") as f:
+                        st.download_button(
+                            "⬇️ Download Equipment Template",
+                            f,
+                            file_name="equipment_template.xlsx",
+                            use_container_width=True
+                        )
+                except Exception as e:
+                    st.error(f"❌ Failed to generate equipment template: {str(e)}")
+            st.caption("Equipment counts & rates")
     
-    # Use session state to avoid re-downloads
-    if 'templates_generated' not in st.session_state:
-        st.session_state.templates_generated = False
-    
-    if st.button("Generate Default Templates"):
-        try:
-            
-            with st.spinner("Generating templates..."):
-                qty_file = generate_quantity_template(BASE_TASKS, zones_floors)
-                worker_file = generate_worker_template(workers)
-                equip_file = generate_equipment_template(equipment)
-            
-            # Create download columns for better UI
-            col1, col2, col3 = st.columns(3)
-            
-            with col1:
-                with open(qty_file, "rb") as f:
-                    st.download_button(
-                        "⬇️ Quantity Template", 
-                        f, 
-                        file_name="quantity_template.xlsx",
-                        help="Template for task quantities per zone/floor"
-                    )
-            with col2:
-                with open(worker_file, "rb") as f:
-                    st.download_button(
-                        "⬇️ Worker Template", 
-                        f, 
-                        file_name="worker_template.xlsx",
-                        help="Template for worker resources and productivity rates"
-                    )
+    with tab3:
+        st.subheader("📤 Upload Your Data")
+        
+        # Better File Upload with Status - IMPROVEMENT 4
+        def create_upload_section(title, file_type, help_text, key_suffix):
+            with st.container():
+                st.markdown(f"**{title}**")
+                uploaded_file = st.file_uploader(
+                    f"Upload {file_type} file",
+                    type=["xlsx"],
+                    help=help_text,
+                    key=f"upload_{key_suffix}"
+                )
+                
+                if uploaded_file:
+                    file_size_kb = uploaded_file.size / 1024
+                    st.success(f"✅ {file_type} uploaded: {uploaded_file.name} ({file_size_kb:.1f} KB)")
+                    # Simple validation
+                    if file_size_kb < 5:  # Very small file
+                        st.warning("⚠️ File seems very small. Please check if it contains data.")
+                else:
+                    st.info(f"📄 Awaiting {file_type} upload...")
+                
+                return uploaded_file
 
-            with col3:
-                with open(equip_file, "rb") as f:
-                    st.download_button(
-                        "⬇️ Equipment Template", 
-                        f, 
-                        file_name="equipment_template.xlsx",
-                        help="Template for equipment resources and productivity rates"
-                    )
-            
-            st.session_state.templates_generated = True
-            st.success("✅ Templates generated successfully!")
-            
-        except Exception as e:
-            st.error(f"❌ Failed to generate default templates: {str(e)}")
-            st.info("💡 Make sure all required modules and base data are available")
-
-    # ---------------- Upload User Files ----------------
-    st.subheader("📤 Upload Your Excel Files")
-    
-    # Better file uploader organization
-    col1, col2, col3 = st.columns(3)
-    
-    with col1:
-        quantity_file = st.file_uploader(
+        st.markdown("**Step 2:** Upload your filled templates:")
+        
+        quantity_file = create_upload_section(
+            "Quantity Data", 
             "Quantity Matrix", 
-            type=["xlsx"],
-            help="Upload filled quantity template"
+            "Upload filled quantity template with task quantities per zone/floor",
+            "quantity"
         )
-    
-    with col2:
-        worker_file = st.file_uploader(
+
+        worker_file = create_upload_section(
+            "Worker Resources",
             "Worker Template", 
-            type=["xlsx"],
-            help="Upload filled worker template"
+            "Upload filled worker template with crew sizes and productivity rates",
+            "worker"
+        )
+
+        equipment_file = create_upload_section(
+            "Equipment Resources",
+            "Equipment Template",
+            "Upload filled equipment template with equipment counts and usage rates",
+            "equipment"
         )
     
-    with col3:
-        equipment_file = st.file_uploader(
-            "Equipment Template", 
-            type=["xlsx"],
-            help="Upload filled equipment template"
-        )
-    
-    start_date = st.date_input("Project Start Date", value=pd.Timestamp.today())
-
-    # ---------------- Generate Schedule ----------------
-    if st.button("🚀 Generate Schedule", type="primary"):
-        # Better validation with specific error messages
-        validation_errors = []
+    with tab4:
+        st.subheader("🚀 Generate Schedule")
         
-        if not quantity_file:
-            validation_errors.append("❌ Please upload the Quantity Matrix Excel file")
-        if not worker_file:
-            validation_errors.append("❌ Please upload the Worker Template Excel file")
-        if not equipment_file:
-            validation_errors.append("❌ Please upload the Equipment Template Excel file")
+        # Enhanced validation with better UX
+        upload_status = st.empty()
         
-        if validation_errors:
-            for error in validation_errors:
-                st.error(error)
-            return
+        # Check if all files are uploaded
+        all_files_uploaded = quantity_file and worker_file and equipment_file
+        
+        if all_files_uploaded:
+            upload_status.success("✅ All files uploaded and ready for schedule generation!")
+        else:
+            missing_files = []
+            if not quantity_file: missing_files.append("Quantity Matrix")
+            if not worker_file: missing_files.append("Worker Template") 
+            if not equipment_file: missing_files.append("Equipment Template")
+            
+            upload_status.warning(f"📋 Waiting for: {', '.join(missing_files)}")
+            st.info("Please upload all required files in the 'Upload Data' tab above")
 
-        # Initialize progress tracking
-        progress_bar = st.progress(0)
-        status_text = st.empty()
+        # Generate Schedule Button
+        if st.button("🚀 Generate Project Schedule", type="primary", use_container_width=True, disabled=not all_files_uploaded):
+            if not all_files_uploaded:
+                st.error("❌ Please upload all required files first")
+                return
 
-        try:
-            # Step 1: Parse uploaded files
-            status_text.text("📊 Parsing uploaded files...")
-            progress_bar.progress(10)
+            # Enhanced Generation with Progress Details - IMPROVEMENT 5
+            progress_bar = st.progress(0)
+            status_area = st.empty()
+            details_area = st.empty()
             
-            # Parse quantity data
-            df_quantity = pd.read_excel(quantity_file)
-            
-            # Check for NaN values before parsing
-            nan_count = df_quantity.isna().sum().sum()
-            if nan_count > 0:
-                st.warning(f"⚠️ Found {nan_count} empty cells in quantity file. They will be treated as 0.")
-            
-            quantity_used = parse_quantity_excel(df_quantity)
-            progress_bar.progress(30)
-            
-            # Parse worker data
-            df_worker = pd.read_excel(worker_file)
-            workers_used = parse_worker_excel(df_worker)
-            progress_bar.progress(50)
-            
-            # Parse equipment data
-            df_equip = pd.read_excel(equipment_file)
-            equipment_used = parse_equipment_excel(df_equip)
-            progress_bar.progress(70)
-
-            # Step 2: Run scheduling logic
-            status_text.text("⏳ Generating schedule... (This may take a while)")
-            progress_bar.progress(80)
-            
-            # FIXED: Use all positional arguments or all keyword arguments
-            schedule, output_folder = run_schedule(
-                zones_floors,        # positional
-                quantity_used,       # positional  
-                start_date,          # positional
-                workers_dict=workers_used,        # positional
-                equipment_dict=equipment_used       # positional
-            )
-            progress_bar.progress(95)
-            status_text.text("✅ Schedule generated successfully!")
-            st.success("🎉 Schedule generated successfully!")
-            # Display quick stats
-            if schedule:
-                total_tasks = len(schedule)
-                start_date = pd.Timestamp(start_date)
-                project_end = max(end_date for _, end_date in schedule.values())
-                if isinstance(project_end, datetime.date) and not isinstance(project_end, pd.Timestamp):
-                    project_end = pd.Timestamp(project_end)
-                project_duration = (project_end - start_date).days
-                
-                col1, col2, col3 = st.columns(3)
-                with col1:
-                    st.metric("Total Tasks", total_tasks)
-                with col2:
-                    st.metric("Project Duration", f"{project_duration} days")
-                with col3:
-                    st.metric("End Date", project_end.strftime("%Y-%m-%d"))
-
-            # ---------------- Download all generated files ----------------
-            st.subheader("📂 Download Generated Files")
-            
-            # Better file organization with categories
-            if os.path.exists(output_folder):
-                files_by_type = {
-                    "📊 Reports": [],
-                    "📅 Schedules": [], 
-                    "📈 Charts": [],
-                    "🔧 Resources": [],
-                    "📋 Other": []
-                }
-                for file_name in os.listdir(output_folder):
-                    file_path = os.path.join(output_folder, file_name)
-                    if os.path.isfile(file_path):
-                        if any(term in file_name.lower() for term in ['report', 'summary', 'utilization']):
-                            files_by_type["📊 Reports"].append(file_name)
-                        elif any(term in file_name.lower() for term in ['schedule', 'gantt']):
-                            files_by_type["📅 Schedules"].append(file_name)
-                        elif any(term in file_name.lower() for term in ['chart', 'graph', 'plot']):
-                            files_by_type["📈 Charts"].append(file_name)
-                        elif any(term in file_name.lower() for term in ['resource', 'worker', 'equipment']):
-                            files_by_type["🔧 Resources"].append(file_name)
-                        else:
-                            files_by_type["📋 Other"].append(file_name)
-                
-                # Display files by category
-                for category, files in files_by_type.items():
-                    if files:
-                        with st.expander(f"{category} ({len(files)} files)"):
-                            for file_name in sorted(files):
-                                file_path = os.path.join(output_folder, file_name)
-                                with open(file_path, "rb") as f:
-                                    st.download_button(
-                                        f"⬇️ {file_name}",
-                                        f,
-                                        file_name=file_name,
-                                        key=f"dl_{file_name}"
-                                    )
-
-            # ---------------- Download Interactive Gantt HTML ----------------
-            st.subheader("📊 Interactive Gantt Chart")
+            steps = [
+                ("📊 Parsing quantity data...", 10, "Reading task quantities per zone and floor"),
+                ("👷 Processing worker resources...", 30, "Analyzing crew sizes and productivity rates"), 
+                ("🏗️ Analyzing equipment requirements...", 50, "Processing equipment counts and usage rates"),
+                ("📅 Generating task schedule...", 70, "Creating optimized construction schedule"),
+                ("🔗 Resolving dependencies...", 85, "Ensuring task dependencies are respected"),
+                ("💫 Finalizing schedule...", 95, "Preparing reports and outputs")
+            ]
             
             try:
-                from reporting import generate_interactive_gantt
+                # Step 1: Parse uploaded files
+                current_progress = 0
                 
-                # FIXED: Use the exact filename we know is generated
-                schedule_excel_path = os.path.join(output_folder, "construction_schedule_optimized.xlsx")
+                for step_text, progress, detail_text in steps:
+                    status_area.subheader(step_text)
+                    details_area.text(detail_text)
+                    progress_bar.progress(progress)
+                    
+                    # Actual processing based on progress
+                    if progress == 10:
+                        # Parse quantity data
+                        df_quantity = pd.read_excel(quantity_file)
+                        nan_count = df_quantity.isna().sum().sum()
+                        if nan_count > 0:
+                            st.warning(f"⚠️ Found {nan_count} empty cells in quantity file. They will be treated as 0.")
+                        quantity_used = parse_quantity_excel(df_quantity)
+                        
+                    elif progress == 30:
+                        # Parse worker data
+                        df_worker = pd.read_excel(worker_file)
+                        workers_used = parse_worker_excel(df_worker)
+                        
+                    elif progress == 50:
+                        # Parse equipment data
+                        df_equip = pd.read_excel(equipment_file)
+                        equipment_used = parse_equipment_excel(df_equip)
+                        
+                    elif progress == 70:
+                        # Run scheduling logic
+                        schedule, output_folder = run_schedule(
+                            zone_floors=zones_floors,
+                            quantity_matrix=quantity_used,  
+                            start_date=start_date,
+                            workers_dict=workers_used,
+                            equipment_dict=equipment_used
+                        )
+                    
+                    # Small delay for better UX (optional)
+                    import time
+                    time.sleep(1)
                 
-                if os.path.exists(schedule_excel_path):
-                    # Read the Excel file as DataFrame
-                    schedule_df = pd.read_excel(schedule_excel_path)
+                progress_bar.progress(100)
+                status_area.subheader("✅ Schedule Generated Successfully!")
+                details_area.text("All operations completed successfully!")
+                
+                st.success("🎉 Project schedule generated successfully!")
+                
+                # Enhanced Results Display
+                if schedule:
+                    st.subheader("🎯 Project Summary")
                     
-                    st.info(f"📊 Loaded schedule with {len(schedule_df)} tasks from construction_schedule_optimized.xlsx")
+                    # Calculate project metrics
+                    total_tasks = len(schedule)
+                    start_date_ts = pd.Timestamp(start_date)
+                    project_end = max(end_date for _, end_date in schedule.values())
+                    project_end = pd.Timestamp(project_end)  # Ensure it's Timestamp
+                    project_duration = (project_end - start_date_ts).days
                     
-                    # Generate the Gantt chart
-                    gantt_file = os.path.join(output_folder, f"interactive_gantt_{start_date.strftime('%Y%m%d')}.html")
+                    # Create a nice dashboard
+                    col1, col2, col3, col4 = st.columns(4)
                     
-                    with st.spinner("🔄 Generating interactive Gantt chart..."):
-                        # FIXED: Pass the DataFrame, not the dictionary
-                        generate_interactive_gantt(schedule_df, gantt_file)
+                    with col1:
+                        st.metric("Total Tasks", total_tasks, "tasks")
                     
-                    if os.path.exists(gantt_file):
-                        with open(gantt_file, "rb") as f:
+                    with col2:
+                        st.metric("Project Duration", f"{project_duration} days", 
+                                 f"Ends: {project_end.strftime('%b %d, %Y')}")
+                    
+                    with col3:
+                        avg_duration = project_duration / max(1, total_tasks)
+                        st.metric("Avg Task Duration", f"{avg_duration:.1f} days")
+                    
+                    with col4:
+                        zones_count = len(zones_floors)
+                        st.metric("Zones Configured", zones_count)
+                
+                # Download section with better organization
+                st.subheader("📂 Download Results")
+                
+                if os.path.exists(output_folder):
+                    # Main download button for everything
+                    col1, col2 = st.columns([1, 2])
+                    
+                    with col1:
+                        # Create a zip of all files (simplified version)
+                        import shutil
+                        zip_path = os.path.join(output_folder, f"project_schedule_{start_date.strftime('%Y%m%d')}.zip")
+                        shutil.make_archive(zip_path.replace('.zip', ''), 'zip', output_folder)
+                        
+                        with open(zip_path, "rb") as f:
                             st.download_button(
-                                label=f"⬇️ Download Interactive Gantt Chart",
+                                "📦 Download Complete Report Package",
                                 data=f,
-                                file_name=f"interactive_gantt_{start_date.strftime('%Y%m%d')}.html",
-                                mime="text/html",
-                                help="Interactive HTML Gantt chart for project visualization"
+                                file_name=f"project_schedule_{start_date.strftime('%Y%m%d')}.zip",
+                                mime="application/zip",
+                                use_container_width=True,
+                                help="Download all generated files as a single ZIP package"
                             )
-                        st.success("✅ Interactive Gantt chart generated successfully!")
-                    else:
-                        st.error("❌ Gantt chart file was not created. Check the reporting module.")
-                else:
-                    st.warning(f"⚠️ Schedule file not found: construction_schedule_optimized.xlsx")
-                    st.info("💡 Available files in output folder:")
-                    for file_name in os.listdir(output_folder):
-                        st.write(f"  - {file_name}")
                     
-            except ImportError as e:
-                st.warning("❌ Interactive Gantt feature is not available (reporting module missing)")
-                st.info("💡 Make sure the 'reporting' module is installed and accessible")
-            except Exception as e:
-                st.error(f"❌ Interactive Gantt could not be generated: {e}")
+                    with col2:
+                        st.info("The package includes: Schedule Excel, Gantt charts, Resource utilization reports, and more")
+                    
+                    # Individual file downloads by category
+                    files_by_type = {
+                        "📅 Schedules": [],
+                        "📊 Reports": [], 
+                        "📈 Charts": [],
+                        "🔧 Resources": [],
+                        "📋 Other": []
+                    }
+                    
+                    for file_name in os.listdir(output_folder):
+                        file_path = os.path.join(output_folder, file_name)
+                        if os.path.isfile(file_path):
+                            if any(term in file_name.lower() for term in ['schedule', 'gantt']):
+                                files_by_type["📅 Schedules"].append(file_name)
+                            elif any(term in file_name.lower() for term in ['report', 'summary', 'utilization']):
+                                files_by_type["📊 Reports"].append(file_name)
+                            elif any(term in file_name.lower() for term in ['chart', 'graph', 'plot']):
+                                files_by_type["📈 Charts"].append(file_name)
+                            elif any(term in file_name.lower() for term in ['resource', 'worker', 'equipment']):
+                                files_by_type["🔧 Resources"].append(file_name)
+                            else:
+                                files_by_type["📋 Other"].append(file_name)
+                    
+                    # Display files by category
+                    for category, files in files_by_type.items():
+                        if files:
+                            with st.expander(f"{category} ({len(files)} files)"):
+                                for file_name in sorted(files):
+                                    file_path = os.path.join(output_folder, file_name)
+                                    with open(file_path, "rb") as f:
+                                        st.download_button(
+                                            f"⬇️ {file_name}",
+                                            f,
+                                            file_name=file_name,
+                                            key=f"dl_{file_name}",
+                                            use_container_width=True
+                                        )
                 
-                # Show more details for debugging
-                if st.checkbox("🔍 Show detailed Gantt generation error"):
+                # Interactive Gantt Chart Section (keep your existing code)
+                st.subheader("📊 Interactive Gantt Chart")
+                try:
+                    from reporting import generate_interactive_gantt
+                    
+                    schedule_excel_path = os.path.join(output_folder, "construction_schedule_optimized.xlsx")
+                    
+                    if os.path.exists(schedule_excel_path):
+                        schedule_df = pd.read_excel(schedule_excel_path)
+                        
+                        st.info(f"📊 Loaded schedule with {len(schedule_df)} tasks")
+                        
+                        gantt_file = os.path.join(output_folder, f"interactive_gantt_{start_date.strftime('%Y%m%d')}.html")
+                        
+                        with st.spinner("🔄 Generating interactive Gantt chart..."):
+                            generate_interactive_gantt(schedule_df, gantt_file)
+                        
+                        if os.path.exists(gantt_file):
+                            with open(gantt_file, "rb") as f:
+                                st.download_button(
+                                    label="📊 Download Interactive Gantt Chart",
+                                    data=f,
+                                    file_name=f"interactive_gantt_{start_date.strftime('%Y%m%d')}.html",
+                                    mime="text/html",
+                                    use_container_width=True,
+                                    help="Interactive HTML Gantt chart for project visualization"
+                                )
+                            st.success("✅ Interactive Gantt chart generated successfully!")
+                        else:
+                            st.error("❌ Gantt chart file was not created.")
+                    else:
+                        st.warning("⚠️ Schedule file not found in output folder")
+                        
+                except ImportError as e:
+                    st.warning("❌ Interactive Gantt feature is not available")
+                except Exception as e:
+                    st.error(f"❌ Interactive Gantt could not be generated: {e}")
+
+            except Exception as e:
+                st.error(f"❌ Failed to generate schedule: {str(e)}")
+                st.info("💡 Check that your Excel files follow the template format correctly")
+                
+                if st.checkbox("🔍 Show detailed error information"):
                     st.exception(e)
 
-            progress_bar.progress(100)
-            status_text.text("✅ All operations completed!")
-
-        except Exception as e:
-            st.error(f"❌ Failed to generate schedule: {str(e)}")
-            st.info("💡 Check that your Excel files follow the template format correctly")
-            
-            # Show more detailed error for debugging
-            if st.checkbox("Show detailed error information"):
-                st.exception(e)
+    # Help sidebar - BONUS IMPROVEMENT
+    with st.sidebar:
+        st.header("💡 Help & Guidance")
+        st.markdown("""
+        **Workflow:**
+        1. **Setup**: Configure zones & floors
+        2. **Templates**: Download and fill Excel templates  
+        3. **Upload**: Submit your filled data
+        4. **Generate**: Create optimized schedule
+        
+        **Required Files:**
+        - Quantity Matrix (tasks × zones × floors)
+        - Worker Resources (crews & productivity)  
+        - Equipment Resources (machines & rates)
+        
+        **Need help?** Check each tab for detailed instructions.
+        """)
 
 def analyze_project_progress(reference_df: pd.DataFrame, actual_df: pd.DataFrame) -> pd.DataFrame:
     """
