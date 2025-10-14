@@ -5,13 +5,10 @@ import os
 from datetime import datetime, timedelta
 import time
 
-# Try to load config, use defaults if not available
-try:
-    with open('config.yaml', 'r') as f:
-        CONFIG = yaml.safe_load(f)
-except FileNotFoundError:
-    # Default config if file doesn't exist
-    CONFIG = {
+# Safe configuration loading with defaults
+def load_config():
+    """Load configuration with comprehensive defaults"""
+    default_config = {
         'app': {
             'name': 'Construction Project Manager Pro', 
             'version': '2.0.0',
@@ -28,25 +25,55 @@ except FileNotFoundError:
             'session_timeout_hours': 8
         }
     }
+    
+    try:
+        if os.path.exists('config.yaml'):
+            with open('config.yaml', 'r') as f:
+                user_config = yaml.safe_load(f) or {}
+                # Deep merge user config with defaults
+                return deep_merge(default_config, user_config)
+        else:
+            return default_config
+    except Exception as e:
+        st.warning(f"⚠️ Config loading failed: {e}. Using defaults.")
+        return default_config
 
-# Configure logging based on config
+def deep_merge(default, user):
+    """Deep merge two dictionaries"""
+    result = default.copy()
+    for key, value in user.items():
+        if isinstance(value, dict) and key in result and isinstance(result[key], dict):
+            result[key] = deep_merge(result[key], value)
+        else:
+            result[key] = value
+    return result
+
+# Load configuration
+CONFIG = load_config()
+
+# Configure logging
 logging.basicConfig(
-    level=getattr(logging, CONFIG.get('logging', {}).get('level', 'INFO')),
-    format=CONFIG.get('logging', {}).get('format', '%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
 logger = logging.getLogger(__name__)
 
 def setup_page_config():
-    """Professional page configuration with theme support"""
+    """Professional page configuration with safe config access"""
+    app_name = CONFIG.get('app', {}).get('name', 'Construction Project Manager Pro')
+    app_version = CONFIG.get('app', {}).get('version', '2.0.0')
+    app_description = CONFIG.get('app', {}).get('description', 'Professional construction tool')
+    page_layout = CONFIG.get('ui', {}).get('page_layout', 'wide')
+    
     st.set_page_config(
-        page_title=CONFIG['app']['name'],
-        layout=CONFIG['ui'].get('page_layout', 'wide'),
+        page_title=app_name,
+        layout=page_layout,
         page_icon="🏗️",
         initial_sidebar_state="expanded",
         menu_items={
             'Get Help': 'https://github.com/your-repo/docs',
             'Report a bug': "https://github.com/your-repo/issues",
-            'About': f"### {CONFIG['app']['name']} v{CONFIG['app']['version']}\n{CONFIG['app']['description']}"
+            'About': f"### {app_name} v{app_version}\n{app_description}"
         }
     )
 
@@ -96,20 +123,23 @@ def inject_app_css():
     """, unsafe_allow_html=True)
 
 def render_app_sidebar():
-    """Simple sidebar that works with your ui_pages.py help section"""
+    """Simple sidebar with safe config access"""
+    app_name = CONFIG.get('app', {}).get('name', 'Construction Pro')
+    app_version = CONFIG.get('app', {}).get('version', '2.0.0')
+    
     with st.sidebar:
-        # Header with logo
-        st.markdown("""
+        # Header with logo - FIXED STRING FORMATTING
+        st.markdown(f"""
         <div class="sidebar-header">
             <h1 style="color: white; margin-bottom: 0.5rem;">🏗️</h1>
-            <h3 style="color: white; margin: 0;">Construction Pro</h3>
-            <p style="color: #ccc; margin: 0; font-size: 0.9rem;">v{CONFIG['app']['version']}</p>
+            <h3 style="color: white; margin: 0;">{app_name}</h3>
+            <p style="color: #ccc; margin: 0; font-size: 0.9rem;">v{app_version}</p>
         </div>
-        """.format(CONFIG=CONFIG), unsafe_allow_html=True)
+        """, unsafe_allow_html=True)
         
         st.markdown("---")
         
-        # Mission selection - SIMPLE VERSION (matches your ui_pages.py)
+        # Mission selection
         mission = st.radio(
             "**🎯 Select Mission**",
             ["Generate Schedule", "Monitor Project"],
@@ -120,12 +150,12 @@ def render_app_sidebar():
         st.markdown("---")
         
         # Environment info
-        environment = CONFIG['app'].get('environment', 'development')
+        environment = CONFIG.get('app', {}).get('environment', 'development')
         env_color = "🟢" if environment == "production" else "🟡"
         
         with st.expander("🌐 System Info", expanded=False):
             st.write(f"**Environment:** {env_color} {environment}")
-            st.write(f"**Version:** {CONFIG['app'].get('version', '2.0.0')}")
+            st.write(f"**Version:** {app_version}")
             st.write(f"**Last refresh:** {datetime.now().strftime('%H:%M:%S')}")
         
         # Quick actions
@@ -171,14 +201,16 @@ def main():
         try:
             from auth import auth_manager, show_auth_ui
             # Configure auth manager if config available
-            if 'auth' in CONFIG:
-                auth_manager.secret_key = CONFIG['auth'].get('secret_key', 'default-secret-key')
-                auth_manager.session_timeout = timedelta(
-                    hours=CONFIG['auth'].get('session_timeout_hours', 8)
-                )
+            auth_config = CONFIG.get('auth', {})
+            auth_manager.secret_key = auth_config.get('secret_key', 'default-secret-key')
+            auth_manager.session_timeout = timedelta(
+                hours=auth_config.get('session_timeout_hours', 8)
+            )
             auth_available = True
         except ImportError:
             st.info("🔓 **Note:** Authentication module not available - running in public mode")
+        except Exception as auth_error:
+            st.warning(f"⚠️ Authentication setup issue: {auth_error}")
         
         # Apply authentication if available
         if auth_available:
@@ -193,13 +225,16 @@ def main():
         # Render sidebar
         mission = render_app_sidebar()
         
-        # Main content area
-        app_name = CONFIG['app']['name']
+        # Main content area - SAFE CONFIG ACCESS
+        app_name = CONFIG.get('app', {}).get('name', 'Construction Project Manager Pro')
+        app_description = CONFIG.get('app', {}).get('description', 'Professional construction scheduling and monitoring tool')
+        app_version = CONFIG.get('app', {}).get('version', '2.0.0')
+        
         st.markdown(f'<div class="app-main-header">🏗️ {app_name}</div>', unsafe_allow_html=True)
-        st.markdown(f'<div class="app-description">{CONFIG["app"]["description"]}</div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="app-description">{app_description}</div>', unsafe_allow_html=True)
         
         # Add environment indicator
-        environment = CONFIG['app'].get('environment', 'development')
+        environment = CONFIG.get('app', {}).get('environment', 'development')
         if environment != 'production':
             env_color = "orange" if environment == "staging" else "blue"
             st.markdown(f"""
@@ -208,9 +243,12 @@ def main():
             </div>
             """, unsafe_allow_html=True)
         
-        # Inject UI styles from ui_pages.py (this function EXISTS in your ui_pages.py)
-        from ui_pages import inject_ui_styles
-        inject_ui_styles()
+        # Inject UI styles from ui_pages.py
+        try:
+            from ui_pages import inject_ui_styles
+            inject_ui_styles()
+        except ImportError:
+            st.warning("⚠️ UI styles not available - basic styling applied")
         
         # Route to appropriate page with permission checks
         if mission == "Generate Schedule":
@@ -224,29 +262,30 @@ def main():
                 **Available accounts with write access:**
                 - **Project Manager:** `project_manager` / `pm123`
                 - **Admin:** `admin` / `admin123`
-                
-                Please logout and login with appropriate credentials.
                 """)
             else:
-                # Import and run the schedule UI (this function EXISTS in your ui_pages.py)
-                from ui_pages import generate_schedule_ui
-                generate_schedule_ui()
+                # Import and run the schedule UI
+                try:
+                    from ui_pages import generate_schedule_ui
+                    generate_schedule_ui()
+                except ImportError:
+                    st.error("❌ Schedule generation module not available")
                 
         elif mission == "Monitor Project":
-            # Import and run the monitoring UI (this function EXISTS in your ui_pages.py)
-            from ui_pages import monitor_project_ui
-            monitor_project_ui()
+            # Import and run the monitoring UI
+            try:
+                from ui_pages import monitor_project_ui
+                monitor_project_ui()
+            except ImportError:
+                st.error("❌ Project monitoring module not available")
         
         # Add global footer
         st.markdown("---")
-        st.markdown("""
+        st.markdown(f"""
         <div style="text-align: center; color: #666; font-size: 0.9rem; margin-top: 2rem;">
-            <p>Built with Streamlit • {app_name} v{version}</p>
+            <p>Built with Streamlit • {app_name} v{app_version}</p>
         </div>
-        """.format(
-            app_name=CONFIG['app']['name'],
-            version=CONFIG['app'].get('version', '2.0.0')
-        ), unsafe_allow_html=True)
+        """, unsafe_allow_html=True)
             
     except Exception as e:
         logger.error(f"Application error: {e}", exc_info=True)
@@ -261,21 +300,11 @@ def main():
         1. Refreshing the page
         2. Checking your internet connection  
         3. Trying again in a few moments
-        
-        If the problem persists, please contact support.
         """)
         
         # Technical details in expander
         with st.expander("🔧 Technical Details for Support"):
             st.exception(e)
-            
-            # System information
-            st.markdown("**System Information:**")
-            st.code(f"""
-            Timestamp: {datetime.now()}
-            Environment: {CONFIG['app'].get('environment', 'unknown')}
-            Session Keys: {list(st.session_state.keys())}
-            """)
 
 if __name__ == "__main__":
     main()
