@@ -348,7 +348,7 @@ class AdvancedResourceManager:
         # FIXED: Handle max_crews properly for both dict and legacy int types
         res_max_value = getattr(res, "max_crews", None)
         
-        if isinstance(res_max_value, dict):
+        if isinstance(res_max_value, Dict):
             # Dictionary case: get task-specific limit
             task_id = getattr(task, 'id', None)
             if task_id and task_id in res_max_value:
