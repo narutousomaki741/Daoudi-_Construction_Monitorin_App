@@ -667,7 +667,7 @@ def generate_schedule_ui():
             num_zones = st.number_input(
                 "How many zones does your building have?",
                 min_value=1,
-                max_value=20,
+                max_value=30,
                 value=2,
                 help="A zone is a distinct section of your building",
             )
@@ -675,7 +675,7 @@ def generate_schedule_ui():
             zones_floors = {}
             for i in range(num_zones):
                 st.markdown(f"**Zone {i + 1}**")
-                col1, col2, col3 = st.columns([2, 1, 1])
+                col1, col2 = st.columns([2, 1])
                 with col1:
                     zone_name = st.text_input(
                         "Zone name",
@@ -685,12 +685,8 @@ def generate_schedule_ui():
                     )
                 with col2:
                     max_floor = st.number_input(
-                        "Floors", min_value=0, max_value=100, value=5, key=f"floor_{i}"
+                        "Floors", min_value=0, max_value=60, value=5, key=f"floor_{i}"
                     )
-                with col3:
-                    st.metric("Total Floors", max_floor + 1)
-                zones_floors[zone_name] = max_floor
-                st.divider()
 
         start_date = st.date_input("Project Start Date", value=pd.Timestamp.today())
 
@@ -702,7 +698,7 @@ def generate_schedule_ui():
 
     # ---------------- TAB 2: TEMPLATE DOWNLOADS ----------------
     with tab2:
-        st.subheader("📊 Download Data Templates")
+        st.subheader("📊 Generat Default Data Templates")
 
         st.markdown("""
         **Step 1:** Download and fill templates with your project data:
@@ -729,10 +725,37 @@ def generate_schedule_ui():
                             st.download_button(file_label, f, file_name=os.path.basename(file_path))
 
                     st.success("✅ All templates generated successfully!")
-
+            if st.button("📥 Generate All Templates", type="primary", use_container_width=True):
+                try:
+                    with st.spinner("Preparing templates..."):
+                    qty_file = generate_quantity_template(BASE_TASKS, zones_floors)
+                    worker_file = generate_worker_template(workers)
+                    equip_file = generate_equipment_template(equipment)
+                    st.session_state["templates_ready"] = True
+                    st.session_state["qty_file"] = qty_file
+                    st.session_state["worker_file"] = worker_file
+                    st.session_state["equip_file"] = equip_file
+                    st.success("✅ Templates generated successfully!")
                 except Exception as e:
                     st.error(f"❌ Failed to generate templates: {e}")
 
+# 🔁 Always show download buttons once generated
+            if st.session_state.get("templates_ready", False):
+                col1, col2, col3 = st.columns(3)
+                for label, key, col in [
+                       ("⬇️ Quantity Template", "qty_file", col1),
+                      ("⬇️ Worker Template", "worker_file", col2),
+                       ("⬇️ Equipment Template", "equip_file", col3),
+                               ]:
+            path = st.session_state.get(key)
+            if path and os.path.exists(path):
+                with open(path, "rb") as f:
+                    col.download_button( label,
+                                            f,
+                                         file_name=os.path.basename(path),
+                                        use_container_width=True,
+                                            )
+ 
     # ---------------- TAB 3: UPLOAD ----------------
     with tab3:
         st.subheader("📤 Upload Your Data")
