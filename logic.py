@@ -1001,6 +1001,7 @@ def run_schedule(zone_floors, quantity_matrix, start_date, workers_dict=None, eq
 
     # Calendar and duration
     workweek = [0, 1, 2, 3, 4, 5]
+    start_date= pd.Timestamp(start_date)
     cal = AdvancedCalendar(start_date=start_date, holidays=holidays, workweek=workweek)
     dur_calc = DurationCalculator(workers_used, equipment_used, quantity_matrix)
 
@@ -1184,7 +1185,10 @@ def generate_schedule_ui():
             # Display quick stats
             if schedule:
                 total_tasks = len(schedule)
+                start_date = pd.Timestamp(start_date)
                 project_end = max(end_date for _, end_date in schedule.values())
+                if isinstance(project_end, datetime.date) and not isinstance(project_end, pd.Timestamp):
+                    project_end = pd.Timestamp(project_end)
                 project_duration = (project_end - start_date).days
                 
                 col1, col2, col3 = st.columns(3)
