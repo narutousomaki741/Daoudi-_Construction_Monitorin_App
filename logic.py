@@ -824,13 +824,21 @@ def generate_schedule_ui():
                     generated_files.append(os.path.join(output_folder, f))
 
                 # Gantt HTML
-                schedule_excel_path = os.path.join(output_folder, "construction_schedule_optimized.xlsx")                  
-                schedule_excel =pd.read_excel(schedule_excel_path )
-                if schedule_excel:
-                    gantt_html = os.path.join(output_folder, "interactive_gantt.html")
-                    generate_interactive_gantt(pd.read_excel(schedule_excel), gantt_html)
-                    generated_files.append(gantt_html)
+                
 
+
+                schedule_excel_path = os.path.join(output_folder, "construction_schedule_optimized.xlsx")
+                schedule_excel = pd.read_excel(schedule_excel_path)
+
+               # Only generate Gantt if Excel has required columns
+               if not schedule_excel.empty:
+                   gantt_html = os.path.join(output_folder, "interactive_gantt.html")
+                   generate_interactive_gantt(schedule_excel, gantt_html)
+                   generated_files.append(gantt_html)
+              else:
+                   st.warning("⚠️ Schedule Excel is empty ")
+
+                
                 st.subheader("📂 Download Generated Files")
                 cols = st.columns(3)
                 for i, file_path in enumerate(generated_files):
