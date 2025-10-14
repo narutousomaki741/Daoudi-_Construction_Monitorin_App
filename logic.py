@@ -1,14 +1,13 @@
 import pandas as pd
 import tempfile
 import os
-from datetime import timedelta
+from datetime import timedelta, datetime , date
 from dataclasses import dataclass, field
 from collections import defaultdict, deque
 from typing import List, Dict, Optional
 import bisect
 import math
 import warnings
-from datetime import datetime
 import logging
 import loguru
 import streamlit as st
@@ -806,8 +805,8 @@ def generate_schedule_ui():
                 zones_floors,        # positional
                 quantity_used,       # positional  
                 start_date,          # positional
-                workers_used,        # positional
-                equipment_used       # positional
+                workers_dict=workers_used,        # positional
+                equipment_dict=equipment_used       # positional
             )
             progress_bar.progress(95)
             status_text.text("✅ Schedule generated successfully!")
