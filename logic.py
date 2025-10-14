@@ -19,7 +19,7 @@ from models import Task,BaseTask, WorkerResource, EquipmentResource
 from defaults import workers, equipment, BASE_TASKS, cross_floor_links, acceleration, SHIFT_CONFIG
 
 from helpers import (
-    ResourceAllocationList,AdvanceResourceManager,EquipmentResourceManager
+    ResourceAllocationList,AdvanceResourceManager,EquipmentResourceManager,
     Topo_order_tasks,
     generate_tasks,
     validate_tasks,
