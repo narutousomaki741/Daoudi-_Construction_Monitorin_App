@@ -1027,8 +1027,8 @@ def generate_schedule_ui():
             
             with st.spinner("Generating templates..."):
                 qty_file = generate_quantity_template(BASE_TASKS, zones_floors)
-                worker_file = generate_worker_template(default_workers_dict)
-                equip_file = generate_equipment_template(default_equipment_dict)
+                worker_file = generate_worker_template(workers)
+                equip_file = generate_equipment_template(equipment)
             
             # Create download columns for better UI
             col1, col2, col3 = st.columns(3)
