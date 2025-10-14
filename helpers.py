@@ -3,7 +3,7 @@ import tempfile
 import pandas as pd
 from typing import Dict
 from models import WorkerResource, EquipmentResource, BaseTask
-from defaults import BASE_TASKS,Task workers as default_workers, equipment as default_equipment
+from defaults import BASE_TASKS,Task, workers as default_workers, equipment as default_equipment
 
 # Build TASK_ID_NAME from BASE_TASKS
 TASK_ID_NAME = {task.id: task.name for tasks in BASE_TASKS.values() for task in tasks}
