@@ -12,8 +12,8 @@ import math
 import warnings
 import logging
 import loguru
-from models import WorkerResource, EquipmentResource, BaseTask
-from defaults import BASE_TASKS,Task, workers as default_workers, equipment as default_equipment
+from models import WorkerResource, EquipmentResource, BaseTask,Task
+from defaults import BASE_TASKS,acceleration, workers as default_workers, equipment as default_equipment
 
 # Build TASK_ID_NAME from BASE_TASKS
 TASK_ID_NAME = {task.id: task.name for tasks in BASE_TASKS.values() for task in tasks}
