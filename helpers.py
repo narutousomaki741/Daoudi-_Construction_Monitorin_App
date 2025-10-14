@@ -350,7 +350,7 @@ class AdvancedResourceManager:
         if res_max_value is None:
            res_max_value=25 
         
-        if isinstance(res_max_value, Dict):
+        if isinstance(res_max_value, dict):
             # Dictionary case: get task-specific limit
             task_id = getattr(task, 'id', None)
             if task_id and task_id in res_max_value:
