@@ -1,5 +1,5 @@
 import streamlit as st
-from logic import generate_schedule_ui, monitor_project_ui
+from ui_pages import generate_schedule_ui, monitor_project_ui
 
 st.set_page_config(page_title="Construction Project Tool", layout="wide")
 
