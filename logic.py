@@ -818,36 +818,53 @@ def generate_schedule_ui():
                 progress.progress(100)
                 st.success("🎉 Schedule generated successfully!")
 
-                # ---------------- GANTT HTML DOWNLOAD ONLY ----------------
-                schedule_excel = next(
-                    (
-                        os.path.join(output_folder, f)
-                        for f in os.listdir(output_folder)
-                        if "schedule" in f.lower() and f.endswith(".xlsx")
-                    ),
-                    None,
-                )
+                # ---------------- ALL DOWNLOAD BUTTONS ----------------
+                generated_files = []
+                for f in os.listdir(output_folder):
+                    if f.endswith(".xlsx") or f.endswith(".csv"):
+                        generated_files.append(os.path.join(output_folder, f))
 
-                if schedule_excel and os.path.exists(schedule_excel):
+                # Gantt HTML
+                schedule_excel = next(
+                    (f for f in generated_files if "schedule" in f.lower() and f.endswith(".xlsx")), None
+                )
+                if schedule_excel:
                     gantt_html = os.path.join(output_folder, "interactive_gantt.html")
                     generate_interactive_gantt(pd.read_excel(schedule_excel), gantt_html)
+                    generated_files.append(gantt_html)
 
-                    with open(gantt_html, "rb") as f:
-                        st.download_button(
-                            "📊 Download Interactive Gantt",
-                            f,
-                            file_name="interactive_gantt.html",
-                            mime="text/html",
-                        )
-                    st.success("✅ Interactive Gantt generated!")
-                else:
-                    st.warning("⚠️ No schedule file found for Gantt chart download.")
+                st.subheader("📂 Download Generated Files")
+                cols = st.columns(3)
+                for i, file_path in enumerate(generated_files):
+                    if os.path.exists(file_path):
+                        with open(file_path, "rb") as f:
+                            cols[i % 3].download_button(
+                                os.path.basename(file_path),
+                                f,
+                                file_name=os.path.basename(file_path),
+                                use_container_width=True,
+                            )
 
             except Exception as e:
                 st.error(f"❌ Failed to generate schedule: {e}")
                 if st.checkbox("🔍 Show error details"):
                     st.exception(e)
 
+    # ---------------- SIDEBAR HELP ----------------
+    with st.sidebar:
+        st.header("💡 Help & Guidance")
+        st.markdown("""
+        **Steps:**
+        1️⃣ Configure project zones & floors  
+        2️⃣ Download Excel templates  
+        3️⃣ Upload filled data  
+        4️⃣ Generate optimized schedule  
+        
+        **Required Files:**
+        - Quantity Matrix  
+        - Worker Template  
+        - Equipment Template
+        """)
     # ---------------- SIDEBAR HELP ----------------
     with st.sidebar:
         st.header("💡 Help & Guidance")
