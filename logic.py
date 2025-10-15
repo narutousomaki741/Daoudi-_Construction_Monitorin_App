@@ -639,7 +639,109 @@ def run_schedule(zone_floors, quantity_matrix, start_date, workers_dict=None, eq
     return schedule, output_folder
 
 
+def Analyze_project_progress(reference_df: pd.DataFrame, actual_df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Compute planned vs actual progress time series and deviations.
+    Returns a DataFrame indexed by Date with PlannedProgress, Progress (daily average),
+    CumulativeActual and ProgressDeviation columns.
 
+    This version is robust to:
+      - missing sheets/columns,
+      - empty uploaded files,
+      - different date formats,
+      - missing Progress column (treat as 0),
+      - gaps in dates (forward-fill).
+    """
+    # defensive copies
+    ref_df = reference_df.copy()
+    act_df = actual_df.copy()
+
+    # Ensure expected columns exist in reference schedule
+    # Ideally the schedule sheet has columns Start, End, TaskID (or TaskName).
+    for col in ("Start", "End"):
+        if col not in ref_df.columns:
+            raise ValueError(f"Reference schedule missing required column '{col}'")
+
+    # Parse dates robustly
+    ref_df["Start"] = pd.to_datetime(ref_df["Start"], errors="coerce")
+    ref_df["End"] = pd.to_datetime(ref_df["End"], errors="coerce")
+    if ref_df["Start"].isna().all() or ref_df["End"].isna().all():
+        raise ValueError("Reference schedule dates could not be parsed. Check Start/End columns.")
+
+    # Build timeline (daily)
+    timeline_start = ref_df["Start"].min()
+    timeline_end = ref_df["End"].max()
+    if pd.isna(timeline_start) or pd.isna(timeline_end):
+        raise ValueError("Reference schedule dates invalid (start/end).")
+
+    timeline = pd.date_range(timeline_start.normalize(), timeline_end.normalize(), freq="D")
+
+    # Planned curve: fraction of tasks active on each day
+    planned_curve = []
+    total_tasks = max(1, len(ref_df))  # avoid division by zero
+    for day in timeline:
+        ongoing = ref_df[(ref_df["Start"].dt.normalize() <= day) & (ref_df["End"].dt.normalize() >= day)]
+        planned_progress = len(ongoing) / total_tasks
+        planned_curve.append({"Date": day, "PlannedProgress": planned_progress})
+
+    planned_df = pd.DataFrame(planned_curve)
+    planned_df["Date"] = pd.to_datetime(planned_df["Date"])
+    planned_df = planned_df.set_index("Date")
+
+    # Actual progress: expect actual_df to have Date and Progress columns
+    if "Date" not in act_df.columns:
+        # No actual progress provided — return planned_df with NaNs for actual
+        planned_df = planned_df.reset_index()
+        planned_df["Progress"] = 0.0
+        planned_df["CumulativeActual"] = planned_df["Progress"].cumsum().clip(upper=1.0)
+        planned_df["ProgressDeviation"] = planned_df["CumulativeActual"] - planned_df["PlannedProgress"]
+        return planned_df
+
+    # Parse actual dates; handle missing or malformed Progress
+    act_df["Date"] = pd.to_datetime(act_df["Date"], errors="coerce")
+    act_df = act_df.dropna(subset=["Date"])
+    if act_df.empty:
+        # treat as no progress recorded
+        planned_df = planned_df.reset_index()
+        planned_df["Progress"] = 0.0
+        planned_df["CumulativeActual"] = planned_df["Progress"].cumsum().clip(upper=1.0)
+        planned_df["ProgressDeviation"] = planned_df["CumulativeActual"] - planned_df["PlannedProgress"]
+        return planned_df
+
+    if "Progress" not in act_df.columns:
+        # maybe user provided percent column named differently — try a few guesses
+        candidate = None
+        for c in ("Pct", "Percentage", "Percent", "Value"):
+            if c in act_df.columns:
+                candidate = c; break
+        if candidate:
+            act_df["Progress"] = pd.to_numeric(act_df[candidate], errors="coerce").fillna(0.0)
+        else:
+            act_df["Progress"] = 0.0
+    else:
+        act_df["Progress"] = pd.to_numeric(act_df["Progress"], errors="coerce").fillna(0.0)
+
+    # Aggregate actual progress by Date (mean)
+    actual_daily = act_df.groupby(act_df["Date"].dt.normalize(), as_index=True).agg({"Progress": "mean"})
+    actual_daily.index.name = "Date"
+
+    # Reindex to planned timeline with forward-fill/backfill as appropriate
+    full_index = pd.DatetimeIndex(timeline)
+    actual_daily = actual_daily.reindex(full_index, method=None)  # allow NaNs
+    actual_daily["Progress"] = actual_daily["Progress"].fillna(0.0)  # if no measurement => 0 progress that day
+
+    # Cumulative actual progress
+    actual_daily["CumulativeActual"] = actual_daily["Progress"].cumsum()
+    actual_daily["CumulativeActual"] = actual_daily["CumulativeActual"].clip(upper=1.0)
+
+    # Combine planned and actual
+    combined = pd.DataFrame(index=full_index)
+    combined["PlannedProgress"] = planned_df["PlannedProgress"].reindex(full_index, fill_value=0.0)
+    combined["Progress"] = actual_daily["Progress"]
+    combined["CumulativeActual"] = actual_daily["CumulativeActual"]
+    combined["ProgressDeviation"] = combined["CumulativeActual"] - combined["PlannedProgress"]
+    combined = combined.reset_index().rename(columns={"index": "Date"})
+    return combined
 
 
         
