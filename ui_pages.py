@@ -18,13 +18,13 @@ from io import BytesIO
 # Import your existing modules (UNCHANGED)
 from models import Task, BaseTask, WorkerResource, EquipmentResource
 from defaults import workers, equipment, BASE_TASKS, cross_floor_links, acceleration, SHIFT_CONFIG
-from logic import run_schedule
+from logic import run_schedule, analyse_project_progress
 from helpers import (
     parse_quantity_excel, parse_worker_excel, parse_equipment_excel,
     generate_quantity_template, generate_worker_template, generate_equipment_template
 )
 from reporting import generate_interactive_gantt
-from logic imprt Analyse_project_progress
+
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
 
