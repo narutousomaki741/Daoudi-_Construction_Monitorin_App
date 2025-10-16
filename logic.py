@@ -639,7 +639,7 @@ def run_schedule(zone_floors, quantity_matrix, start_date, workers_dict=None, eq
     return schedule, output_folder
 
 
-def Analyze_project_progress(reference_df: pd.DataFrame, actual_df: pd.DataFrame) -> pd.DataFrame:
+def analyze_project_progress(reference_df: pd.DataFrame, actual_df: pd.DataFrame) -> pd.DataFrame:
     """
     Compute planned vs actual progress time series and deviations.
     Returns a DataFrame indexed by Date with PlannedProgress, Progress (daily average),
