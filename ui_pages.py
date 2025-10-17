@@ -18,7 +18,7 @@ from io import BytesIO
 # Import your existing modules (UNCHANGED)
 from models import Task, BaseTask, WorkerResource, EquipmentResource
 from defaults import workers, equipment, BASE_TASKS, cross_floor_links, acceleration, SHIFT_CONFIG
-from logic import run_schedule, analyse_project_progress
+from logic import run_schedule, analyze_project_progress
 from helpers import (
     parse_quantity_excel, parse_worker_excel, parse_equipment_excel,
     generate_quantity_template, generate_worker_template, generate_equipment_template
